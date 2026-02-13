@@ -40,10 +40,28 @@ spec:
           spec:
             description: SpringBootApplicationSpec defines the desired state of SpringBootApplication.
             properties:
-              foo:
-                description: Foo is an example field of SpringBootApplication. Edit
-                  springbootapplication_types.go to remove/update
+              config:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              image:
                 type: string
+              resourcePreset:
+                type: string
+              resources:
+                description: |-
+                  Describes cpu and memory requirements for a spring application to run when under normal load
+                  If ResourcePreset is not used, a user must specify CPU and memory usage
+                properties:
+                  cpu:
+                    type: string
+                  memory:
+                    type: string
+                required:
+                - cpu
+                - memory
+                type: object
+            required:
+            - image
             type: object
           status:
             description: SpringBootApplicationStatus defines the observed state of
