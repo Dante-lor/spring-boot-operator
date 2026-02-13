@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 )
 
@@ -47,11 +48,41 @@ type SpringBootApplicationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	logger := logf.FromContext(ctx)
 
-	// TODO(user): your logic here
+	app := &v1alpha1.SpringBootApplication{}
+	err := r.Get(ctx, req.NamespacedName, app)
+
+	if (err != nil) {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	logger.Info("Reconciling application", "name", app.ObjectMeta.Name, "namespace", app.ObjectMeta.Namespace)
+	
+	// 
 
 	return ctrl.Result{}, nil
+}
+
+func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, app v1alpha1.SpringBootApplication) (error) {
+
+	
+
+	return nil;
+}
+
+func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app v1alpha1.SpringBootApplication) (error) {
+
+	
+
+	return nil;
+}
+
+func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app v1alpha1.SpringBootApplication) (error) {
+
+
+
+	return nil;
 }
 
 // SetupWithManager sets up the controller with the Manager.
