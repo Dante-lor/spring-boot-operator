@@ -22,12 +22,16 @@ import (
 	"fmt"
 	"reflect"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 
@@ -66,9 +70,11 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 
 	logger.Info("Reconciling application", "name", app.ObjectMeta.Name, "namespace", app.ObjectMeta.Namespace)
 
-	appConfig, _, err := mergeConfigWithDefaultPort(app.Spec.Config)
+	appConfig, internalPort, err := mergeConfigWithDefaultPort(app.Spec.Config)
 
-	r.ensureConfigMap(ctx, app, appConfig)
+	r.ensureConfigMap(ctx, app, appConfig);
+	r.ensureService(ctx, app, internalPort);
+	r.ensureDeployment(ctx, app, internalPort);
 
 	return ctrl.Result{}, nil
 }
@@ -97,14 +103,14 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 
 	// If error exists (not found)
 	if err != nil {
-		r.Create(ctx, desired)
+		err = r.Create(ctx, desired)
 
-		// If They are not equal update to desired state
+	// If they are not equal update to desired state
 	} else if !reflect.DeepEqual(desired.Data, existing.Data) {
-		r.Update(ctx, desired)
+		err = r.Update(ctx, desired)
 	}
 
-	return nil
+	return err;
 }
 
 // Creates HTTP service to handle web traffic
@@ -126,7 +132,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 		Spec: corev1.ServiceSpec{
 			Type: "ClusterIP",
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
+				{
 					Name:       "http",
 					Port:       EXTERNAL_PORT,
 					TargetPort: intstr.FromInt(internalPort),
@@ -141,6 +147,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 	// If there was an error, it means no config map exists
 	if err != nil {
 		// Service doesn't exist → create
+
 		if err := r.Create(ctx, desired); err != nil {
 			return err
 		}
@@ -162,6 +169,12 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 			needsUpdate = true
 		}
 
+		// Compare type
+		if (existing.Spec.Type != desired.Spec.Type) {
+			existing.Spec.Type = desired.Spec.Type;
+			needsUpdate = true
+		}
+
 		if needsUpdate {
 			if err := r.Update(ctx, existing); err != nil {
 				return err
@@ -173,9 +186,167 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 	return nil
 }
 
-func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app v1alpha1.SpringBootApplication) error {
+func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *v1alpha1.SpringBootApplication, internalPort int) error {
+	existing := &appsv1.Deployment{}
+
+	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
+
+	if (client.IgnoreNotFound(err) != nil) {
+		return err;
+	} else if err != nil {
+		// Not found - create it
+		desired, err := r.createDeploymentObject(app, internalPort);
+		if err != nil {
+			return err;
+		}
+		return r.Create(ctx, &desired)
+	} else {
+		// Found so update if it has changed
+		desired, err := r.createDeploymentObject(app, internalPort);
+		if err != nil {
+			return err;
+		}
+
+		controllerutil.SetControllerReference(app, &desired, r.Scheme);
+		// Need to compare existing deployment specs
+		if !equality.Semantic.DeepEqual(existing.Spec, desired.Spec) {
+			r.Update(ctx, &desired)
+		}
+
+	}
+
+
 
 	return nil
+}
+
+func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
+	labels := app.GetLabels()
+	labels["app"] = app.Name
+
+	// Try and create resources from the app object
+
+	resources, err := createResources(*app);
+
+	if (err != nil) {
+		return appsv1.Deployment{}, err;
+	}
+
+	replicas := int32(1);
+
+	runAsNonRoot := true;
+	allowPriviledgeEscalation := false
+	readOnlyFileSystem := true
+
+	dep := appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+			Labels:    app.Labels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": app.Name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: &runAsNonRoot,
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name: "app",
+							Image: app.Spec.Image,
+							Ports: []corev1.ContainerPort{
+								{
+									Name: "http",
+									ContainerPort: int32(internalPort),
+								},
+							},
+							Resources: resources,
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &allowPriviledgeEscalation,
+								ReadOnlyRootFilesystem: &readOnlyFileSystem,
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{
+										"ALL",	
+									},
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									Items: []corev1.KeyToPath{
+										{
+											Key: app.Name,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+
+			},
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(app, &dep, r.Scheme); err != nil {
+    	return dep, err
+	}
+
+	return dep, nil;
+}
+
+
+func createResources (app springv1alpha1.SpringBootApplication) (corev1.ResourceRequirements, error) {
+	switch *app.Spec.ResourcePreset {
+		case v1alpha1.Small:
+			return createSpringResourceRequirements(resource.MustParse("1"), resource.MustParse("1Gi")), nil
+		case v1alpha1.Medium:
+			return createSpringResourceRequirements(resource.MustParse("2"), resource.MustParse("2Gi")), nil
+		case v1alpha1.Large:
+			return createSpringResourceRequirements(resource.MustParse("4"), resource.MustParse("4Gi")), nil
+		default:
+			// Try and parse
+			cpu, err := resource.ParseQuantity(app.Spec.Resources.CPU)
+			if (err != nil) {
+				return corev1.ResourceRequirements{}, err;
+			}
+
+			memory, err := resource.ParseQuantity(app.Spec.Resources.Memory)
+
+			if (err != nil) {
+				return corev1.ResourceRequirements{}, err
+			}
+
+			return createSpringResourceRequirements(cpu, memory), nil;
+	}
+}
+
+func createSpringResourceRequirements(cpu resource.Quantity, memory resource.Quantity) corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU: cpu,
+			corev1.ResourceMemory: memory,
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: memory,
+		},
+	}
 }
 
 // mergeConfigWithDefaultPort merges the RawExtension config with a default server port
@@ -228,5 +399,8 @@ func (r *SpringBootApplicationReconciler) SetupWithManager(mgr ctrl.Manager) err
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&springv1alpha1.SpringBootApplication{}).
 		Named("springbootapplication").
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
