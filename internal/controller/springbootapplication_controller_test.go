@@ -22,8 +22,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	res "k8s.io/apimachinery/pkg/api/resource"
@@ -176,7 +179,52 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 			CheckExpectedPresetBehaviour(nil, "2", "8Gi");
 		})
-	})
 
+		Describe("OwnerReferences on Sub-Resources", func() {
+
+			SubResourceHasOwnerReference := func(sub client.Object) {
+
+				err := k8sClient.Get(ctx, typeNamespacedName, sub)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(sub.GetOwnerReferences()).To(HaveLen(1))
+				Expect(sub.GetOwnerReferences()).To(HaveExactElements(metav1.OwnerReference{
+					APIVersion: "spring.dante-lor.github.io/v1alpha1",
+					Kind: "SpringBootApplication",
+					UID: resource.UID,
+					Name: resource.Name,
+					Controller: ptr.To(true),
+					BlockOwnerDeletion: ptr.To(true),
+				}))	
+			}
+
+			BeforeEach(func() {
+				resourcePreset := v1alpha1.Small
+				resource.Spec.ResourcePreset = &resourcePreset;
+	
+				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+	
+				_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: typeNamespacedName,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				// Refresh the in memory UID
+				Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
+			})
+
+			It("should set ownerReference on deployment", func () {
+				SubResourceHasOwnerReference(&appsv1.Deployment{})
+			})
+
+			It("should set ownerReference on configmap", func () {
+				SubResourceHasOwnerReference(&corev1.ConfigMap{})
+			})
+
+			It("should set ownerReference on service", func () {
+				SubResourceHasOwnerReference(&corev1.Service{})
+			})
+
+		})
+	});
 	
 })

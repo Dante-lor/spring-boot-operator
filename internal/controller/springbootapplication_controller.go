@@ -20,11 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -98,25 +96,21 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 		return err
 	}
 
-	desired := &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      app.Name,
 			Namespace: app.Namespace,
-			Labels:    app.Labels,
 		},
-		Data: map[string]string{
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		cm.Labels = app.Labels
+
+        cm.Data = map[string]string{
 			"application.yaml": config,
-		},
-	}
-
-	// If error exists (not found)
-	if err != nil {
-		err = r.Create(ctx, desired)
-
-		// If they are not equal update to desired state
-	} else if !reflect.DeepEqual(desired.Data, existing.Data) {
-		err = r.Update(ctx, desired)
-	}
+		}
+        return controllerutil.SetControllerReference(app, cm, r.Scheme)
+    })
 
 	return err
 }
@@ -130,13 +124,17 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 		return err
 	}
 
-	desired := &corev1.Service{
+	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      app.Name,
 			Namespace: app.Namespace,
-			Labels:    app.Labels,
 		},
-		Spec: corev1.ServiceSpec{
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
+		svc.Labels = app.Labels;
+
+		svc.Spec = corev1.ServiceSpec{
 			Type: "ClusterIP",
 			Ports: []corev1.ServicePort{
 				{
@@ -148,47 +146,12 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 			Selector: map[string]string{
 				"app": app.Name,
 			},
-		},
-	}
-
-	// If there was an error, it means no config map exists
-	if err != nil {
-		// Service doesn't exist → create
-
-		if err := r.Create(ctx, desired); err != nil {
-			return err
-		}
-	} else {
-		// Service exists → check if it needs update
-		// Only update fields that are mutable (Type, Ports, Selector are mutable in most clusters)
-		needsUpdate := false
-
-		// Compare ports
-		if !reflect.DeepEqual(existing.Spec.Ports, desired.Spec.Ports) {
-			existing.Spec.Ports = desired.Spec.Ports
-			needsUpdate = true
 		}
 
-		// Compare selector
-		if !reflect.DeepEqual(existing.Spec.Selector, desired.Spec.Selector) {
-			existing.Spec.Selector = desired.Spec.Selector
-			needsUpdate = true
-		}
+		return controllerutil.SetControllerReference(app, svc, r.Scheme)
+	})
 
-		// Compare type
-		if existing.Spec.Type != desired.Spec.Type {
-			existing.Spec.Type = desired.Spec.Type
-			needsUpdate = true
-		}
-
-		if needsUpdate {
-			if err := r.Update(ctx, existing); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
+	return err;
 }
 
 func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *v1alpha1.SpringBootApplication, internalPort int) error {
@@ -198,29 +161,29 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 
 	if client.IgnoreNotFound(err) != nil {
 		return err
-	} else if err != nil {
-		// Not found - create it
-		desired, err := r.createDeploymentObject(app, internalPort)
-		if err != nil {
-			return err
-		}
-		return r.Create(ctx, &desired)
-	} else {
-		// Found so update if it has changed
-		desired, err := r.createDeploymentObject(app, internalPort)
-		if err != nil {
-			return err
-		}
-
-		controllerutil.SetControllerReference(app, &desired, r.Scheme)
-		// Need to compare existing deployment specs
-		if !equality.Semantic.DeepEqual(existing.Spec, desired.Spec) {
-			r.Update(ctx, &desired)
-		}
-
 	}
 
-	return nil
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      app.Name,
+			Namespace: app.Namespace,
+		},
+	}
+
+	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
+		desired, err := r.createDeploymentObject(app, internalPort)
+
+		if (err != nil) {
+			return err;
+		}
+
+		deploy.Labels = desired.Labels
+		deploy.Spec = desired.Spec
+
+		return controllerutil.SetControllerReference(app, deploy, r.Scheme)
+	})
+
+	return err
 }
 
 func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
