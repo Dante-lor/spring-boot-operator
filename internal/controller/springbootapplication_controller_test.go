@@ -18,13 +18,16 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -99,7 +102,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 		})
 	})
 
-	Context("When reconciling a minimal valid application", func() {
+	Context("When reconciling a valid application", func() {
 
 		var resource *springv1alpha1.SpringBootApplication
 
@@ -211,7 +214,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(configFileData).To(Equal(expected))
 			})
 
-			It("Mounts the config at /config", func() {
+			It("mounts the config at /config", func() {
 				deploy := &appsv1.Deployment{}
 	
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
@@ -232,7 +235,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(configMount.MountPath).To(Equal("/config"))
 			})
 
-			It("Adds environment variable to tell where additional properties are located", func() {
+			It("adds environment variable to tell where additional properties are located", func() {
 				deploy := &appsv1.Deployment{}
 	
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
@@ -245,7 +248,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(configEnvVar.Value).To(Equal("/config"))
 			})
 
-			It("Uses 70 percent of available memory for the java heap", func() {
+			It("uses 70 percent of available memory for the java heap", func() {
 				deploy := &appsv1.Deployment{}
 	
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
@@ -256,6 +259,71 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 				Expect(configEnvVar.Name).To(Equal("JAVA_TOOL_OPTIONS"))
 				Expect(configEnvVar.Value).To(Equal("-XX:MaxRAMPercentage=70"))
+			})
+		})
+
+		Describe("when the port is overriden", func() {
+			BeforeEach(func() {
+				resource.Spec.ResourcePreset = ptr.To(v1alpha1.Small)
+
+				config := map[string]any{
+					"server": map[string]any{
+						"port": 3333, // Different port
+					},
+				}
+
+				raw, _ := json.Marshal(config)
+
+				resource.Spec.Config = &runtime.RawExtension{
+					Raw: raw,
+				}
+
+				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
+				_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: typeNamespacedName,
+				})
+
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("sets the config correctly", func() {				
+				cm := &corev1.ConfigMap{}
+	
+				Expect(k8sClient.Get(ctx, typeNamespacedName, cm)).To(Succeed())
+	
+				Expect(cm.Data).To(HaveLen(1))
+				Expect(cm.Data).To(HaveKey("application.yaml"))
+	
+				configFileData := cm.Data["application.yaml"]
+	
+				expected := 
+`server:
+  port: 3333
+`
+				Expect(configFileData).To(Equal(expected))
+			})
+
+			It("Uses the updated port in the service", func() {
+				svc := &corev1.Service{}
+				Expect(k8sClient.Get(ctx, typeNamespacedName, svc)).To(Succeed())
+
+				Expect(svc.Spec.Ports).To(HaveLen(1))
+				port := svc.Spec.Ports[0]
+
+				Expect(port.TargetPort).To(Equal(intstr.FromInt(3333)))
+			})
+
+			It("Exposes the port in the deployment", func ()  {
+				deploy := &appsv1.Deployment{}
+				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+
+				ports := deploy.Spec.Template.Spec.Containers[0].Ports
+
+				Expect(ports).To(HaveLen(1))
+				exposed := ports[0]
+
+				Expect(exposed.ContainerPort).To(BeEquivalentTo(3333))
 			})
 		})
 
