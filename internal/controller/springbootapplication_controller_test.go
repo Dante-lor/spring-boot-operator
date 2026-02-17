@@ -304,7 +304,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(configFileData).To(Equal(expected))
 			})
 
-			It("Uses the updated port in the service", func() {
+			It("uses the updated port in the service", func() {
 				svc := &corev1.Service{}
 				Expect(k8sClient.Get(ctx, typeNamespacedName, svc)).To(Succeed())
 
@@ -314,7 +314,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(port.TargetPort).To(Equal(intstr.FromInt(3333)))
 			})
 
-			It("Exposes the port in the deployment", func ()  {
+			It("exposes the port in the deployment", func ()  {
 				deploy := &appsv1.Deployment{}
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
 
