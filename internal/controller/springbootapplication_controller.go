@@ -72,9 +72,17 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 
 	appConfig, internalPort, err := mergeConfigWithDefaultPort(app.Spec.Config)
 
-	r.ensureConfigMap(ctx, app, appConfig);
-	r.ensureService(ctx, app, internalPort);
-	r.ensureDeployment(ctx, app, internalPort);
+	if err = r.ensureConfigMap(ctx, app, appConfig); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ensureService(ctx, app, internalPort); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ensureDeployment(ctx, app, internalPort); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -105,17 +113,16 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 	if err != nil {
 		err = r.Create(ctx, desired)
 
-	// If they are not equal update to desired state
+		// If they are not equal update to desired state
 	} else if !reflect.DeepEqual(desired.Data, existing.Data) {
 		err = r.Update(ctx, desired)
 	}
 
-	return err;
+	return err
 }
 
 // Creates HTTP service to handle web traffic
 func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *v1alpha1.SpringBootApplication, internalPort int) error {
-	logger := ctrl.LoggerFrom(ctx)
 	existing := &corev1.Service{}
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
 
@@ -151,7 +158,6 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 		if err := r.Create(ctx, desired); err != nil {
 			return err
 		}
-		logger.Info("Created Service", "name", app.Name)
 	} else {
 		// Service exists → check if it needs update
 		// Only update fields that are mutable (Type, Ports, Selector are mutable in most clusters)
@@ -170,8 +176,8 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 		}
 
 		// Compare type
-		if (existing.Spec.Type != desired.Spec.Type) {
-			existing.Spec.Type = desired.Spec.Type;
+		if existing.Spec.Type != desired.Spec.Type {
+			existing.Spec.Type = desired.Spec.Type
 			needsUpdate = true
 		}
 
@@ -179,7 +185,6 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 			if err := r.Update(ctx, existing); err != nil {
 				return err
 			}
-			logger.Info("Updated Service", "name", app.Name)
 		}
 	}
 
@@ -191,23 +196,23 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
 
-	if (client.IgnoreNotFound(err) != nil) {
-		return err;
+	if client.IgnoreNotFound(err) != nil {
+		return err
 	} else if err != nil {
 		// Not found - create it
-		desired, err := r.createDeploymentObject(app, internalPort);
+		desired, err := r.createDeploymentObject(app, internalPort)
 		if err != nil {
-			return err;
+			return err
 		}
 		return r.Create(ctx, &desired)
 	} else {
 		// Found so update if it has changed
-		desired, err := r.createDeploymentObject(app, internalPort);
+		desired, err := r.createDeploymentObject(app, internalPort)
 		if err != nil {
-			return err;
+			return err
 		}
 
-		controllerutil.SetControllerReference(app, &desired, r.Scheme);
+		controllerutil.SetControllerReference(app, &desired, r.Scheme)
 		// Need to compare existing deployment specs
 		if !equality.Semantic.DeepEqual(existing.Spec, desired.Spec) {
 			r.Update(ctx, &desired)
@@ -215,26 +220,31 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 
 	}
 
-
-
 	return nil
 }
 
 func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
 	labels := app.GetLabels()
-	labels["app"] = app.Name
+
+	if labels == nil {
+		labels = map[string]string{
+			"app": app.Name,
+		}
+	} else {
+		labels["app"] = app.Name
+	}
 
 	// Try and create resources from the app object
 
-	resources, err := createResources(*app);
+	resources, err := createResources(*app)
 
-	if (err != nil) {
-		return appsv1.Deployment{}, err;
+	if err != nil {
+		return appsv1.Deployment{}, err
 	}
 
-	replicas := int32(1);
+	replicas := int32(1)
 
-	runAsNonRoot := true;
+	runAsNonRoot := true
 	allowPriviledgeEscalation := false
 	readOnlyFileSystem := true
 
@@ -264,21 +274,21 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.S
 					},
 					Containers: []corev1.Container{
 						{
-							Name: "app",
+							Name:  "app",
 							Image: app.Spec.Image,
 							Ports: []corev1.ContainerPort{
 								{
-									Name: "http",
+									Name:          "http",
 									ContainerPort: int32(internalPort),
 								},
 							},
 							Resources: resources,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &allowPriviledgeEscalation,
-								ReadOnlyRootFilesystem: &readOnlyFileSystem,
+								ReadOnlyRootFilesystem:   &readOnlyFileSystem,
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{
-										"ALL",	
+										"ALL",
 									},
 								},
 							},
@@ -289,58 +299,63 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.S
 							Name: "config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
-									Items: []corev1.KeyToPath{
-										{
-											Key: app.Name,
-										},
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: app.Name,
 									},
 								},
 							},
 						},
 					},
 				},
-
 			},
 		},
 	}
 
 	if err := controllerutil.SetControllerReference(app, &dep, r.Scheme); err != nil {
-    	return dep, err
+		return dep, err
 	}
 
-	return dep, nil;
+	return dep, nil
 }
 
+func createResources(app springv1alpha1.SpringBootApplication) (corev1.ResourceRequirements, error) {
+	if app.Spec.ResourcePreset == nil {
+		resources := app.Spec.Resources
+		if resources == nil {
+			return corev1.ResourceRequirements{}, fmt.Errorf("Either resource preset or resource must be defined")
+		}
 
-func createResources (app springv1alpha1.SpringBootApplication) (corev1.ResourceRequirements, error) {
+		// Try and parse
+		cpu, err := resource.ParseQuantity(resources.CPU)
+		if err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+
+		memory, err := resource.ParseQuantity(resources.Memory)
+
+		if err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+
+		return createSpringResourceRequirements(cpu, memory), nil
+	}
+
 	switch *app.Spec.ResourcePreset {
-		case v1alpha1.Small:
-			return createSpringResourceRequirements(resource.MustParse("1"), resource.MustParse("1Gi")), nil
-		case v1alpha1.Medium:
-			return createSpringResourceRequirements(resource.MustParse("2"), resource.MustParse("2Gi")), nil
-		case v1alpha1.Large:
-			return createSpringResourceRequirements(resource.MustParse("4"), resource.MustParse("4Gi")), nil
-		default:
-			// Try and parse
-			cpu, err := resource.ParseQuantity(app.Spec.Resources.CPU)
-			if (err != nil) {
-				return corev1.ResourceRequirements{}, err;
-			}
-
-			memory, err := resource.ParseQuantity(app.Spec.Resources.Memory)
-
-			if (err != nil) {
-				return corev1.ResourceRequirements{}, err
-			}
-
-			return createSpringResourceRequirements(cpu, memory), nil;
+	case v1alpha1.Small:
+		return createSpringResourceRequirements(resource.MustParse("1"), resource.MustParse("1Gi")), nil
+	case v1alpha1.Medium:
+		return createSpringResourceRequirements(resource.MustParse("2"), resource.MustParse("2Gi")), nil
+	case v1alpha1.Large:
+		return createSpringResourceRequirements(resource.MustParse("4"), resource.MustParse("4Gi")), nil
+	default:
+		return corev1.ResourceRequirements{}, fmt.Errorf("unrecognized resource preset: %s", *app.Spec.ResourcePreset)
 	}
 }
 
 func createSpringResourceRequirements(cpu resource.Quantity, memory resource.Quantity) corev1.ResourceRequirements {
 	return corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: cpu,
+			corev1.ResourceCPU:    cpu,
 			corev1.ResourceMemory: memory,
 		},
 		Limits: corev1.ResourceList{

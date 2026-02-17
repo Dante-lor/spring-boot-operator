@@ -4,7 +4,7 @@ The Spring Boot Operator is designed to simplify the deployment of spring boot a
 
 ## Description
 
-Why does a java developer have to care about whether it has read only access to the file system or what container security policy is in place. They simply shouldn't have to care. They need to care about:
+Why does a java developer have to care about whether it has read only access to the file system or what container security policy is in place. They need to care about:
 
 * What application is running.
 * How is it configured.
@@ -12,7 +12,6 @@ Why does a java developer have to care about whether it has read only access to 
 * What are it's scaling characteristics (even that is a push)
 
 This operator simplifies the deployment of spring boot applications putting in place recommended security practices so your developers don't have to think about it.
-
 
 ## Getting Started
 

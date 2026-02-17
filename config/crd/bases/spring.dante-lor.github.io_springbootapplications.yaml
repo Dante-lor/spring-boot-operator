@@ -44,8 +44,13 @@ spec:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               image:
+                minLength: 1
                 type: string
               resourcePreset:
+                enum:
+                - small
+                - medium
+                - large
                 type: string
               resources:
                 description: |-
@@ -126,6 +131,8 @@ spec:
             required:
             - conditions
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

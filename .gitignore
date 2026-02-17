@@ -26,5 +26,5 @@ go.work
 *.swo
 *~
 
-checksum
-checksum.asc
+checksums.txt
+checksums.txt.asc

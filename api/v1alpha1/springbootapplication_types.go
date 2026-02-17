@@ -38,10 +38,12 @@ type ResourceDefinition struct {
 
 // SpringBootApplicationSpec defines the desired state of SpringBootApplication.
 type SpringBootApplicationSpec struct {
-	Image          string                `json:"image"`
-	Config         *runtime.RawExtension `json:"config,omitempty"`
-	ResourcePreset *ResourcePreset       `json:"resourcePreset,omitempty"`
-	Resources      *ResourceDefinition   `json:"resources,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Image  string                `json:"image"`
+	Config *runtime.RawExtension `json:"config,omitempty"`
+	// +kubebuilder:validation:Enum=small;medium;large
+	ResourcePreset *ResourcePreset     `json:"resourcePreset,omitempty"`
+	Resources      *ResourceDefinition `json:"resources,omitempty"`
 }
 
 // SpringBootApplicationStatus defines the observed state of SpringBootApplication.
@@ -57,8 +59,8 @@ type SpringBootApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SpringBootApplicationSpec   `json:"spec,omitempty"`
-	Status SpringBootApplicationStatus `json:"status,omitempty"`
+	Spec   SpringBootApplicationSpec    `json:"spec"`
+	Status *SpringBootApplicationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
