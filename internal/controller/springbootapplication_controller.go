@@ -106,11 +106,11 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
 		cm.Labels = app.Labels
 
-        cm.Data = map[string]string{
+		cm.Data = map[string]string{
 			"application.yaml": config,
 		}
-        return controllerutil.SetControllerReference(app, cm, r.Scheme)
-    })
+		return controllerutil.SetControllerReference(app, cm, r.Scheme)
+	})
 
 	return err
 }
@@ -132,7 +132,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
-		svc.Labels = app.Labels;
+		svc.Labels = app.Labels
 
 		svc.Spec = corev1.ServiceSpec{
 			Type: "ClusterIP",
@@ -151,7 +151,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 		return controllerutil.SetControllerReference(app, svc, r.Scheme)
 	})
 
-	return err;
+	return err
 }
 
 func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *v1alpha1.SpringBootApplication, internalPort int) error {
@@ -173,8 +173,8 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		desired, err := r.createDeploymentObject(app, internalPort)
 
-		if (err != nil) {
-			return err;
+		if err != nil {
+			return err
 		}
 
 		deploy.Labels = desired.Labels
@@ -253,6 +253,26 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.S
 									Drop: []corev1.Capability{
 										"ALL",
 									},
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									// Using additional config means that this config is merged with their existing
+									// Configuration, meaning the config object doesn't have to be as large
+									Name: "SPRING_CONFIG_ADDITIONAL_LOCATION",
+									Value: "/config",
+								},
+								{
+									// By default, java only uses 25% of it's memory for the java heap. That is quite low
+									// Setting this to 70 allows it to use more. Some needs to be left for GC.
+									Name: "JAVA_TOOL_OPTIONS",
+									Value: "-XX:MaxRAMPercentage=70",
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "config",
+									MountPath: "/config",
 								},
 							},
 						},

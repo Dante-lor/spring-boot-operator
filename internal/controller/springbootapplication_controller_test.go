@@ -117,8 +117,8 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			err = k8sClient.Get(ctx, typeNamespacedName, dep)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedCPU := res.MustParse(expectedCPUStr);
-			expectedMem := res.MustParse(expectedMemoryStr);
+			expectedCPU := res.MustParse(expectedCPUStr)
+			expectedMem := res.MustParse(expectedMemoryStr)
 
 			deployResources := dep.Spec.Template.Spec.Containers[0].Resources
 
@@ -171,13 +171,92 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			CheckExpectedPresetBehaviour(&resourcePreset, "4", "4Gi")
 		})
 
-		It("uses custom resources if defined and preset is nil", func ()  {
+		It("uses custom resources if defined and preset is nil", func() {
 			resource.Spec.Resources = &springv1alpha1.ResourceDefinition{
-				CPU: "2",
+				CPU:    "2",
 				Memory: "8Gi",
 			}
 
-			CheckExpectedPresetBehaviour(nil, "2", "8Gi");
+			CheckExpectedPresetBehaviour(nil, "2", "8Gi")
+		})
+
+		Describe("with small preset", func () {
+
+			BeforeEach(func() {
+				resourcePreset := v1alpha1.Small
+				resource.Spec.ResourcePreset = &resourcePreset
+				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+
+				_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: typeNamespacedName,
+				})
+
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("sets application.yaml to minimal config including port", func() {
+				cm := &corev1.ConfigMap{}
+	
+				Expect(k8sClient.Get(ctx, typeNamespacedName, cm)).To(Succeed())
+	
+				Expect(cm.Data).To(HaveLen(1))
+				Expect(cm.Data).To(HaveKey("application.yaml"))
+	
+				configFileData := cm.Data["application.yaml"]
+	
+				expected := 
+`server:
+  port: 8080
+`
+				Expect(configFileData).To(Equal(expected))
+			})
+
+			It("Mounts the config at /config", func() {
+				deploy := &appsv1.Deployment{}
+	
+				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+
+				volumeName := "config";
+				// Check volume is added
+				volumes := deploy.Spec.Template.Spec.Volumes
+				Expect(volumes).To(HaveLen(1))
+				vol := volumes[0]
+				Expect(vol.Name).To(Equal(volumeName))
+				Expect(vol.ConfigMap.LocalObjectReference.Name).To(Equal(resource.Name))
+
+				// Check it's mounted at /config
+				mounts := deploy.Spec.Template.Spec.Containers[0].VolumeMounts
+				Expect(mounts).To(HaveLen(1))
+				configMount := mounts[0]
+				Expect(configMount.Name).To(Equal(volumeName))
+				Expect(configMount.MountPath).To(Equal("/config"))
+			})
+
+			It("Adds environment variable to tell where additional properties are located", func() {
+				deploy := &appsv1.Deployment{}
+	
+				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+				env := deploy.Spec.Template.Spec.Containers[0].Env
+
+				Expect(env).To(HaveLen(2))
+				configEnvVar := env[0]
+
+				Expect(configEnvVar.Name).To(Equal("SPRING_CONFIG_ADDITIONAL_LOCATION"))
+				Expect(configEnvVar.Value).To(Equal("/config"))
+			})
+
+			It("Uses 70 percent of available memory for the java heap", func() {
+				deploy := &appsv1.Deployment{}
+	
+				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+				env := deploy.Spec.Template.Spec.Containers[0].Env
+
+				Expect(env).To(HaveLen(2))
+				configEnvVar := env[1]
+
+				Expect(configEnvVar.Name).To(Equal("JAVA_TOOL_OPTIONS"))
+				Expect(configEnvVar.Value).To(Equal("-XX:MaxRAMPercentage=70"))
+			})
 		})
 
 		Describe("OwnerReferences on Sub-Resources", func() {
@@ -189,21 +268,21 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 				Expect(sub.GetOwnerReferences()).To(HaveLen(1))
 				Expect(sub.GetOwnerReferences()).To(HaveExactElements(metav1.OwnerReference{
-					APIVersion: "spring.dante-lor.github.io/v1alpha1",
-					Kind: "SpringBootApplication",
-					UID: resource.UID,
-					Name: resource.Name,
-					Controller: ptr.To(true),
+					APIVersion:         "spring.dante-lor.github.io/v1alpha1",
+					Kind:               "SpringBootApplication",
+					UID:                resource.UID,
+					Name:               resource.Name,
+					Controller:         ptr.To(true),
 					BlockOwnerDeletion: ptr.To(true),
-				}))	
+				}))
 			}
 
 			BeforeEach(func() {
 				resourcePreset := v1alpha1.Small
-				resource.Spec.ResourcePreset = &resourcePreset;
-	
+				resource.Spec.ResourcePreset = &resourcePreset
+
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-	
+
 				_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 					NamespacedName: typeNamespacedName,
 				})
@@ -212,19 +291,18 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(k8sClient.Get(ctx, typeNamespacedName, resource)).To(Succeed())
 			})
 
-			It("should set ownerReference on deployment", func () {
+			It("should set ownerReference on deployment", func() {
 				SubResourceHasOwnerReference(&appsv1.Deployment{})
 			})
 
-			It("should set ownerReference on configmap", func () {
+			It("should set ownerReference on configmap", func() {
 				SubResourceHasOwnerReference(&corev1.ConfigMap{})
 			})
 
-			It("should set ownerReference on service", func () {
+			It("should set ownerReference on service", func() {
 				SubResourceHasOwnerReference(&corev1.Service{})
 			})
-
 		})
-	});
-	
+	})
+
 })
