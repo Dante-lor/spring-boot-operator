@@ -26,7 +26,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 )
 
@@ -61,7 +60,7 @@ func (d *SpringBootApplicationResourceDefaulter) Default(_ context.Context, obj 
 	if springbootapplication.Spec.Resources != nil {
 		springbootapplication.Spec.ResourcePreset = nil
 	} else if springbootapplication.Spec.ResourcePreset == nil {
-		springbootapplication.Spec.ResourcePreset = ptr.To(v1alpha1.Small)
+		springbootapplication.Spec.ResourcePreset = ptr.To(springv1alpha1.Small)
 	}
 
 	return nil

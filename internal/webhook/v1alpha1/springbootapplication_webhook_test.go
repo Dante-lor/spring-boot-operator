@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 
-	"github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 )
 
@@ -50,10 +49,10 @@ var _ = Describe("SpringBootApplication Webhook", func() {
 			Expect(defaulter.Default(ctx, other)).NotTo(Succeed())
 		})
 
-		presets := []v1alpha1.ResourcePreset{
-			v1alpha1.Small,
-			v1alpha1.Medium,
-			v1alpha1.Large,
+		presets := []springv1alpha1.ResourcePreset{
+			springv1alpha1.Small,
+			springv1alpha1.Medium,
+			springv1alpha1.Large,
 		}
 
 		for _, element := range presets {
@@ -62,16 +61,16 @@ var _ = Describe("SpringBootApplication Webhook", func() {
 
 				obj.Spec.ResourcePreset = &element
 
-				defaulter.Default(ctx, obj)
+				Expect(defaulter.Default(ctx, obj)).To(Succeed())
 
 				Expect(*obj.Spec.ResourcePreset).To(Equal(element))
 			})
 
 			It(fmt.Sprintf("should remove preset of %s if Resources are defined", element), func() {
 				obj.Spec.ResourcePreset = &element
-				obj.Spec.Resources = &v1alpha1.ResourceDefinition{}
+				obj.Spec.Resources = &springv1alpha1.ResourceDefinition{}
 
-				defaulter.Default(ctx, obj)
+				Expect(defaulter.Default(ctx, obj)).To(Succeed())
 
 				Expect(obj.Spec.ResourcePreset).To(BeNil())
 			})
@@ -79,17 +78,17 @@ var _ = Describe("SpringBootApplication Webhook", func() {
 		}
 
 		It("should leave preset as nil if resources are defined", func() {
-			obj.Spec.Resources = &v1alpha1.ResourceDefinition{}
+			obj.Spec.Resources = &springv1alpha1.ResourceDefinition{}
 
-			defaulter.Default(ctx, obj)
+			Expect(defaulter.Default(ctx, obj)).To(Succeed())
 
 			Expect(obj.Spec.ResourcePreset).To(BeNil())
 		})
 
 		It("should set preset to small if neither resources, nor preset are defined", func() {
-			defaulter.Default(ctx, obj)
+			Expect(defaulter.Default(ctx, obj)).To(Succeed())
 
-			Expect(*obj.Spec.ResourcePreset).To(Equal(v1alpha1.Small))
+			Expect(*obj.Spec.ResourcePreset).To(Equal(springv1alpha1.Small))
 		})
 	})
 
