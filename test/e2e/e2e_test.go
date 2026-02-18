@@ -282,6 +282,29 @@ var _ = Describe("Manager", Ordered, func() {
 
 		// +kubebuilder:scaffold:e2e-webhooks-checks
 
+		It("should set small preset by default", func() {
+			createMinimalApp := func(g Gomega) {
+				cmd := exec.Command("kubectl", "apply", "-f", "config/samples/minimal.yaml")
+				_, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+			Eventually(createMinimalApp).Should(Succeed())
+
+			// Check the small preset is added
+			minimalAppHasSmallPreset := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"springbootapplications/springbootapplication-sample",
+					"-o", "jsonpath={ .spec.resourcePreset }")
+
+				res, err := utils.Run(cmd)
+
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(res).To(Equal("small"))
+			}
+
+			Eventually(minimalAppHasSmallPreset).Should(Succeed())
+		})
+
 		// TODO: Customize the e2e test suite with scenarios specific to your project.
 		// Consider applying sample/CR(s) and check their status and/or verifying
 		// the reconciliation by using the metrics, i.e.:

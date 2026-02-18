@@ -6,4 +6,4 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: springbootapplication-sample
 spec:
-  image: example:latest
+  image: registry.k8s.io/pause:latest
