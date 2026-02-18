@@ -18,24 +18,37 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+type ResourcePreset string
+
+const (
+	Small  ResourcePreset = "small"
+	Medium ResourcePreset = "medium"
+	Large  ResourcePreset = "large"
+)
+
+// Describes cpu and memory requirements for a spring application to run when under normal load
+// If ResourcePreset is not used, a user must specify CPU and memory usage
+type ResourceDefinition struct {
+	CPU    string `json:"cpu"`
+	Memory string `json:"memory"`
+}
 
 // SpringBootApplicationSpec defines the desired state of SpringBootApplication.
 type SpringBootApplicationSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of SpringBootApplication. Edit springbootapplication_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	Image  string                `json:"image"`
+	Config *runtime.RawExtension `json:"config,omitempty"`
+	// +kubebuilder:validation:Enum=small;medium;large
+	ResourcePreset *ResourcePreset     `json:"resourcePreset,omitempty"`
+	Resources      *ResourceDefinition `json:"resources,omitempty"`
 }
 
 // SpringBootApplicationStatus defines the observed state of SpringBootApplication.
 type SpringBootApplicationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Conditions []metav1.Condition `json:"conditions"`
 }
 
 // +kubebuilder:object:root=true
@@ -46,7 +59,7 @@ type SpringBootApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SpringBootApplicationSpec   `json:"spec,omitempty"`
+	Spec   SpringBootApplicationSpec   `json:"spec"`
 	Status SpringBootApplicationStatus `json:"status,omitempty"`
 }
 

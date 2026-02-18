@@ -25,11 +25,7 @@
 		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind",
 		"source=${localEnv:HOME}/.kube,target=/home/vscode/.kube,type=bind"
 	],
-
-	"postAttachCommand": [
-		"sh",
-		".devcontainer/install-operator-sdk.sh"
-	],
+	"postAttachCommand": [ "sh", ".devcontainer/install-operator-sdk.sh" ],
 	"customizations": {
 		"vscode": {
 			"extensions": [
