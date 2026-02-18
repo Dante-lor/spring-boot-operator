@@ -1,0 +1,4 @@
+site_name: Spring Boot Operator
+site_url: https://dante-lor.github.io/spring-boot-operator
+theme:
+  name: material
