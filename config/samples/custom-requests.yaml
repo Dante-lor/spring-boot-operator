@@ -1,0 +1,12 @@
+apiVersion: spring.dante-lor.github.io/v1alpha1
+kind: SpringBootApplication
+metadata:
+  labels:
+    app.kubernetes.io/name: spring-boot-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: springbootapplication-sample
+spec:
+  image: example:latest
+  resources:
+    cpu: 4
+    memory: 8Gi
