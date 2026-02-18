@@ -126,6 +126,17 @@ is manually re-applied afterwards.
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
+## Updating Documentation
+
+Our docs are built with [Material For Markdown](https://squidfunk.github.io/mkdocs-material/). To host the docs locally,
+run this from inside the devcontainer:
+
+```bash
+mkdocs serve
+```
+
+From there you will be able to edit the documentation live.
+
 ## License
 
 Copyright 2026 Daniel Taylor.

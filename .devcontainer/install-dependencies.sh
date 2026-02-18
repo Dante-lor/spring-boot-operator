@@ -1,5 +1,7 @@
 #!/bin/sh
 set -e
+
+# Install Operator SDK
 export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
 export OS=$(uname | awk '{print tolower($0)}')
 
@@ -16,6 +18,10 @@ gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.t
 grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
 chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
 
+# KubeBuilder
 curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/linux/amd64
 chmod +x kubebuilder
 sudo mv kubebuilder /usr/local/bin/
+
+# mkdocs
+pip install mkdocs-material

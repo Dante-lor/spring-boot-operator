@@ -11,6 +11,9 @@
 			"enableNonRootDocker": "true",
 			"moby": "true"
 		},
+		// for mkdocs
+		"ghcr.io/devcontainers/features/python": {},
+
 		"ghcr.io/devcontainers/features/go:1": {},
 		"ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {},
 		"ghcr.io/devcontainers-extra/features/kind": {}
@@ -25,11 +28,12 @@
 		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind",
 		"source=${localEnv:HOME}/.kube,target=/home/vscode/.kube,type=bind"
 	],
-	"postAttachCommand": [ "sh", ".devcontainer/install-operator-sdk.sh" ],
+	"postAttachCommand": [ "sh", ".devcontainer/install-dependencies.sh" ],
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"ms-vscode.makefile-tools"
+				"ms-vscode.makefile-tools",
+				"redhat.vscode-yaml"
 			]
 		}
 	},
