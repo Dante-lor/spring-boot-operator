@@ -34,10 +34,8 @@ import (
 
 	res "k8s.io/apimachinery/pkg/api/resource"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("SpringBootApplication Controller", func() {
@@ -129,7 +127,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			Expect(*deployResources.Requests.Memory()).To(BeIdenticalTo(expectedMem))
 			Expect(*deployResources.Limits.Memory()).To(BeIdenticalTo(expectedMem))
 
-			// Checking the CPU would yeild an empty resource value. Therefore checking the length to
+			// Checking the CPU would yield an empty resource value. Therefore checking the length to
 			// Ensure only one value is set (the memory as previously tested)
 			Expect(len(deployResources.Limits)).To(BeIdenticalTo(1))
 		}
@@ -160,18 +158,15 @@ var _ = Describe("SpringBootApplication Controller", func() {
 		})
 
 		It("sets resource requests and memory limits for small preset", func() {
-			resourcePreset := v1alpha1.Small
-			CheckExpectedPresetBehaviour(&resourcePreset, "1", "1Gi")
+			CheckExpectedPresetBehaviour(ptr.To(springv1alpha1.Small), "1", "1Gi")
 		})
 
 		It("sets resource requests and memory limits for medium preset", func() {
-			resourcePreset := v1alpha1.Medium
-			CheckExpectedPresetBehaviour(&resourcePreset, "2", "2Gi")
+			CheckExpectedPresetBehaviour(ptr.To(springv1alpha1.Medium), "2", "2Gi")
 		})
 
 		It("sets resource requests and memory limits for large preset", func() {
-			resourcePreset := v1alpha1.Large
-			CheckExpectedPresetBehaviour(&resourcePreset, "4", "4Gi")
+			CheckExpectedPresetBehaviour(ptr.To(springv1alpha1.Large), "4", "4Gi")
 		})
 
 		It("uses custom resources if defined and preset is nil", func() {
@@ -186,8 +181,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 		Describe("with small preset", func() {
 
 			BeforeEach(func() {
-				resourcePreset := v1alpha1.Small
-				resource.Spec.ResourcePreset = &resourcePreset
+				resource.Spec.ResourcePreset = ptr.To(springv1alpha1.Small)
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 
 				_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
@@ -262,9 +256,9 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			})
 		})
 
-		Describe("when the port is overriden", func() {
+		Describe("when the port is overridden", func() {
 			BeforeEach(func() {
-				resource.Spec.ResourcePreset = ptr.To(v1alpha1.Small)
+				resource.Spec.ResourcePreset = ptr.To(springv1alpha1.Small)
 
 				config := map[string]any{
 					"server": map[string]any{
@@ -346,8 +340,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			}
 
 			BeforeEach(func() {
-				resourcePreset := v1alpha1.Small
-				resource.Spec.ResourcePreset = &resourcePreset
+				resource.Spec.ResourcePreset = ptr.To(springv1alpha1.Small)
 
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 

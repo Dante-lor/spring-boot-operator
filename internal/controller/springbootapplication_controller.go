@@ -21,8 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,9 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
-
-	"github.com/dante-lor/spring-boot-operator/api/v1alpha1"
-	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 )
 
 // SpringBootApplicationReconciler reconciles a SpringBootApplication object
@@ -62,16 +61,39 @@ const EXTERNAL_PORT = 80
 func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logf.FromContext(ctx)
 
-	app := &v1alpha1.SpringBootApplication{}
+	app := &springv1alpha1.SpringBootApplication{}
 	err := r.Get(ctx, req.NamespacedName, app)
 
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info("Reconciling application", "name", app.ObjectMeta.Name, "namespace", app.ObjectMeta.Namespace)
+	logger.Info("Reconciling application", "name", app.Name, "namespace", app.Namespace)
 
 	appConfig, internalPort, err := mergeConfigWithDefaultPort(app.Spec.Config)
+
+	if err != nil {
+		meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
+			Type:               "Valid",
+			Status:             metav1.ConditionFalse,
+			Reason:             "FailedConfigMerge",
+			Message:            err.Error(),
+			ObservedGeneration: app.Generation,
+		})
+	} else {
+		meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
+			Type:               "Valid",
+			Status:             metav1.ConditionTrue,
+			Reason:             "ConfigMergeSuccessful",
+			Message:            "Generated Merged Spring Configuration",
+			ObservedGeneration: app.Generation,
+		})
+	}
+
+	// Try and update status
+	if err := r.Status().Update(ctx, app); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	if err = r.ensureConfigMap(ctx, app, appConfig); err != nil {
 		return ctrl.Result{}, err
@@ -89,7 +111,7 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 }
 
 // Creates Configmap using provided string for the application.yaml file
-func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, app *v1alpha1.SpringBootApplication, config string) error {
+func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, app *springv1alpha1.SpringBootApplication, config string) error {
 
 	// Get existing configmap
 	existing := &corev1.ConfigMap{}
@@ -119,7 +141,7 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 }
 
 // Creates HTTP service to handle web traffic
-func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *v1alpha1.SpringBootApplication, internalPort int) error {
+func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *springv1alpha1.SpringBootApplication, internalPort int) error {
 	existing := &corev1.Service{}
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
 
@@ -157,7 +179,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 	return err
 }
 
-func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *v1alpha1.SpringBootApplication, internalPort int) error {
+func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *springv1alpha1.SpringBootApplication, internalPort int) error {
 	existing := &appsv1.Deployment{}
 
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
@@ -189,7 +211,7 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 	return err
 }
 
-func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
+func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
 	labels := app.GetLabels()
 
 	if labels == nil {
@@ -308,7 +330,7 @@ func createResources(app springv1alpha1.SpringBootApplication) (corev1.ResourceR
 	if app.Spec.ResourcePreset == nil {
 		resources := app.Spec.Resources
 		if resources == nil {
-			return corev1.ResourceRequirements{}, fmt.Errorf("Either resource preset or resource must be defined")
+			return corev1.ResourceRequirements{}, fmt.Errorf("either resource preset or resource must be defined")
 		}
 
 		// Try and parse
@@ -327,11 +349,11 @@ func createResources(app springv1alpha1.SpringBootApplication) (corev1.ResourceR
 	}
 
 	switch *app.Spec.ResourcePreset {
-	case v1alpha1.Small:
+	case springv1alpha1.Small:
 		return createSpringResourceRequirements(resource.MustParse("1"), resource.MustParse("1Gi")), nil
-	case v1alpha1.Medium:
+	case springv1alpha1.Medium:
 		return createSpringResourceRequirements(resource.MustParse("2"), resource.MustParse("2Gi")), nil
-	case v1alpha1.Large:
+	case springv1alpha1.Large:
 		return createSpringResourceRequirements(resource.MustParse("4"), resource.MustParse("4Gi")), nil
 	default:
 		return corev1.ResourceRequirements{}, fmt.Errorf("unrecognized resource preset: %s", *app.Spec.ResourcePreset)

@@ -59,8 +59,8 @@ type SpringBootApplication struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SpringBootApplicationSpec    `json:"spec"`
-	Status *SpringBootApplicationStatus `json:"status,omitempty"`
+	Spec   SpringBootApplicationSpec   `json:"spec"`
+	Status SpringBootApplicationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
