@@ -15,3 +15,7 @@ gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.t
 
 grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
 chmod +x operator-sdk_${OS}_${ARCH} && sudo mv operator-sdk_${OS}_${ARCH} /usr/local/bin/operator-sdk
+
+curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/linux/amd64
+chmod +x kubebuilder
+sudo mv kubebuilder /usr/local/bin/

@@ -183,7 +183,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			CheckExpectedPresetBehaviour(nil, "2", "8Gi")
 		})
 
-		Describe("with small preset", func () {
+		Describe("with small preset", func() {
 
 			BeforeEach(func() {
 				resourcePreset := v1alpha1.Small
@@ -199,16 +199,16 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 			It("sets application.yaml to minimal config including port", func() {
 				cm := &corev1.ConfigMap{}
-	
+
 				Expect(k8sClient.Get(ctx, typeNamespacedName, cm)).To(Succeed())
-	
+
 				Expect(cm.Data).To(HaveLen(1))
 				Expect(cm.Data).To(HaveKey("application.yaml"))
-	
+
 				configFileData := cm.Data["application.yaml"]
-	
-				expected := 
-`server:
+
+				expected :=
+					`server:
   port: 8080
 `
 				Expect(configFileData).To(Equal(expected))
@@ -216,10 +216,10 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 			It("mounts the config at /config", func() {
 				deploy := &appsv1.Deployment{}
-	
+
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
 
-				volumeName := "config";
+				volumeName := "config"
 				// Check volume is added
 				volumes := deploy.Spec.Template.Spec.Volumes
 				Expect(volumes).To(HaveLen(1))
@@ -237,7 +237,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 			It("adds environment variable to tell where additional properties are located", func() {
 				deploy := &appsv1.Deployment{}
-	
+
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
 				env := deploy.Spec.Template.Spec.Containers[0].Env
 
@@ -250,7 +250,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 
 			It("uses 70 percent of available memory for the java heap", func() {
 				deploy := &appsv1.Deployment{}
-	
+
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
 				env := deploy.Spec.Template.Spec.Containers[0].Env
 
@@ -287,18 +287,18 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("sets the config correctly", func() {				
+			It("sets the config correctly", func() {
 				cm := &corev1.ConfigMap{}
-	
+
 				Expect(k8sClient.Get(ctx, typeNamespacedName, cm)).To(Succeed())
-	
+
 				Expect(cm.Data).To(HaveLen(1))
 				Expect(cm.Data).To(HaveKey("application.yaml"))
-	
+
 				configFileData := cm.Data["application.yaml"]
-	
-				expected := 
-`server:
+
+				expected :=
+					`server:
   port: 3333
 `
 				Expect(configFileData).To(Equal(expected))
@@ -314,7 +314,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 				Expect(port.TargetPort).To(Equal(intstr.FromInt(3333)))
 			})
 
-			It("exposes the port in the deployment", func ()  {
+			It("exposes the port in the deployment", func() {
 				deploy := &appsv1.Deployment{}
 				Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
 

@@ -50,6 +50,9 @@ const EXTERNAL_PORT = 80
 // +kubebuilder:rbac:groups=spring.dante-lor.github.io,resources=springbootapplications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=spring.dante-lor.github.io,resources=springbootapplications/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=spring.dante-lor.github.io,resources=springbootapplications/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -259,19 +262,19 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *v1alpha1.S
 								{
 									// Using additional config means that this config is merged with their existing
 									// Configuration, meaning the config object doesn't have to be as large
-									Name: "SPRING_CONFIG_ADDITIONAL_LOCATION",
+									Name:  "SPRING_CONFIG_ADDITIONAL_LOCATION",
 									Value: "/config",
 								},
 								{
 									// By default, java only uses 25% of it's memory for the java heap. That is quite low
 									// Setting this to 70 allows it to use more. Some needs to be left for GC.
-									Name: "JAVA_TOOL_OPTIONS",
+									Name:  "JAVA_TOOL_OPTIONS",
 									Value: "-XX:MaxRAMPercentage=70",
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "config",
+									Name:      "config",
 									MountPath: "/config",
 								},
 							},
