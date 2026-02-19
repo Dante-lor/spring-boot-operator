@@ -372,7 +372,7 @@ catalog-validate: opm ## Validate the catalog.
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(CONTAINER_TOOL) build -f $(CATALOG_DIR)/catalog.Dockerfile -t $(CATALOG_IMG) .
+	$(CONTAINER_TOOL) build -f catalog.Dockerfile -t $(CATALOG_IMG) .
 
 # Push the catalog image.
 .PHONY: catalog-push
