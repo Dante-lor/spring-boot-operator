@@ -112,7 +112,7 @@ spec:
   source: spring-boot-operator-catalog
   sourceNamespace: olm
   # Pin to a specific version by setting startingCSV, e.g.:
-  # startingCSV: spring-boot-operator.v0.0.1
+  # startingCSV: spring-boot-operator.v0.0.2
 ```
 
 ```bash
@@ -133,7 +133,7 @@ Wait until the `PHASE` column shows `Succeeded`:
 
 ```
 NAME                            DISPLAY                 VERSION   REPLACES   PHASE
-spring-boot-operator.v0.0.1    Spring Boot Operator    0.0.1                Succeeded
+spring-boot-operator.v0.0.2    Spring Boot Operator    0.0.2                Succeeded
 ```
 
 You can also verify the operator pod is running:
@@ -185,7 +185,7 @@ To remove the operator and all associated resources:
 kubectl delete subscription spring-boot-operator -n spring-boot-operator-system
 
 # Delete the CSV to remove the operator itself
-kubectl delete csv spring-boot-operator.v0.0.1 -n spring-boot-operator-system
+kubectl delete csv spring-boot-operator.v0.0.2 -n spring-boot-operator-system
 
 # Remove the OperatorGroup and namespace
 kubectl delete operatorgroup spring-boot-operator-group -n spring-boot-operator-system
@@ -212,7 +212,7 @@ Ensure the catalog image is publicly accessible from your cluster or that image 
 **CSV stuck in `Installing` or `Failed` phase**
 Inspect the CSV events and status:
 ```bash
-kubectl describe csv spring-boot-operator.v0.0.1 -n spring-boot-operator-system
+kubectl describe csv spring-boot-operator.v0.0.2 -n spring-boot-operator-system
 ```
 
 **No packages found in subscription**
