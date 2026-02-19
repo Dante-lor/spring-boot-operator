@@ -1,0 +1,4 @@
+---
+defaultChannel: alpha
+name: spring-boot-operator
+schema: olm.package

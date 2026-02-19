@@ -62,7 +62,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2026-02-19T12:23:11Z"
+    createdAt: "2026-02-19T15:30:56Z"
     operators.operatorframework.io/builder: operator-sdk-v1.42.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
   name: spring-boot-operator.v0.0.1

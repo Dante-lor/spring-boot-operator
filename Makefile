@@ -340,20 +340,34 @@ endif
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
 
-# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:latest
+CATALOG_DIR ?= catalog
 
-# Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
-ifneq ($(origin CATALOG_BASE_IMG), undefined)
-FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
-endif
+.PHONY: catalog-init
+catalog-init: opm ## Initialise the catalog directory structure (run once).
+	mkdir -p $(CATALOG_DIR)/spring-boot-operator
+	$(OPM) generate dockerfile $(CATALOG_DIR)
+	$(OPM) init spring-boot-operator \
+		--default-channel=alpha \
+		--output yaml > $(CATALOG_DIR)/spring-boot-operator/package.yaml
+	@echo "Catalog initialised. Commit the catalog/ directory."
+
+# Adds the versioned bundle to the catalogue 
+.PHONY: catalog-add
+catalog-add: opm ## Add current bundle version to the catalog. Usage: make catalog-add PREV_VERSION=0.0.1
+	@chmod +x hack/add-to-catalog.sh
+	./hack/add-to-catalog.sh $(VERSION)
+
+.PHONY: catalog-validate
+catalog-validate: opm ## Validate the catalog.
+	$(OPM) validate $(CATALOG_DIR)
 
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
 # This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool $(CONTAINER_TOOL) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(CONTAINER_TOOL) build -f $(CATALOG_DIR)/catalog.Dockerfile -t $(CATALOG_IMG) .
 
 # Push the catalog image.
 .PHONY: catalog-push

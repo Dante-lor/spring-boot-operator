@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${{ github.ref_name }}
+          echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Verify Makefile version matches tag
+        run: |
+          MAKE_VERSION=$(grep '^VERSION' Makefile | awk '{print $3}')
+          if [ "$MAKE_VERSION" != "$VERSION" ]; then
+            echo "Makefile version ($MAKE_VERSION) does not match tag ($VERSION)"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: make test
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push manager image
+        run: |
+          make docker-build docker-push
+
+      - name: Build bundle
+        run: make bundle
+
+      - name: Build & push bundle image
+        run: |
+          make bundle-build bundle-push
+
+      - name: Build & Push catalog
+        run: |
+          make catalog-add catalog-validate catalog-build catalog-push
+
+      - name: Build installer YAML
+        run: make build-installer
+
+      - name: Create GitHub release
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --generate-notes \
+            --verify-tag \
+            --title "Spring Boot Operator ${{ github.ref_name }}" \
+            dist/install.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  bump-version:
+    runs-on: ubuntu-latest
+    needs: release
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Checkout the default branch, not the tag, so we can commit back to it
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Compute next patch version
+        id: next
+        run: |
+          TAG=${{ github.ref_name }}
+          VERSION=${TAG#v}
+
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update Makefile version
+        run: |
+          NEXT_VERSION=${{ steps.next.outputs.next_version }}
+          # Replace the VERSION line, being careful to only match the definition line
+          sed -i "s/^VERSION ?= .*/VERSION ?= ${NEXT_VERSION}/" Makefile
+
+      - name: Commit and push version bump
+        run: |
+          NEXT_VERSION=${{ steps.next.outputs.next_version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Makefile
+          git commit -m "chore: bump version to ${NEXT_VERSION} [skip ci]"
+          git push
