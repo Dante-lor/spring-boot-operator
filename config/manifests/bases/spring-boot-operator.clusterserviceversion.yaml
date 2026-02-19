@@ -1,0 +1,50 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: spring-boot-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: SpringBootApplication is the Schema for the springbootapplications
+        API.
+      displayName: Spring Boot Application
+      kind: SpringBootApplication
+      name: springbootapplications.spring.dante-lor.github.io
+      version: v1alpha1
+  description: Simplify the way you deploy spring boot applications to Kubernetes
+  displayName: Spring Boot Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - spring-boot
+  - java
+  - hobby
+  - simplify
+  links:
+  - name: Spring Boot Operator
+    url: https://spring-boot-operator.domain
+  maturity: alpha
+  minKubeVersion: 1.30.0
+  provider:
+    name: dante-lor
+    url: https://dante-lor.github.io/spring-boot-operator
+  version: 0.0.0

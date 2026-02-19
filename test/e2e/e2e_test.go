@@ -293,7 +293,7 @@ var _ = Describe("Manager", Ordered, func() {
 			// Check the small preset is added
 			minimalAppHasSmallPreset := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get",
-					"springbootapplications/springbootapplication-sample",
+					"springbootapplications/minimal",
 					"-o", "jsonpath={ .spec.resourcePreset }")
 
 				res, err := utils.Run(cmd)

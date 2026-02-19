@@ -4,7 +4,7 @@ metadata:
   labels:
     app.kubernetes.io/name: spring-boot-operator
     app.kubernetes.io/managed-by: kustomize
-  name: springbootapplication-sample
+  name: custom-resources
 spec:
   image: registry.k8s.io/pause:latest
   resources:

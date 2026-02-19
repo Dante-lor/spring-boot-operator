@@ -1,0 +1,5 @@
+---
+schema: olm.channel
+package: spring-boot-operator
+name: alpha
+entries:

@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+VERSION ?= 0.0.2
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -91,6 +91,11 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ##@ Development
+
+.PHONY: version-bump 
+version-bump:# Bump versions in the Makefile, Docs and config/manager/kustomize.yaml files
+	@chmod +x hack/bump-version.sh
+	./hack/bump-version.sh $(VERSION)
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -340,20 +345,34 @@ endif
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
 
-# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:latest
+CATALOG_DIR ?= catalog
 
-# Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
-ifneq ($(origin CATALOG_BASE_IMG), undefined)
-FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
-endif
+.PHONY: catalog-init
+catalog-init: opm ## Initialise the catalog directory structure (run once).
+	mkdir -p $(CATALOG_DIR)/spring-boot-operator
+	$(OPM) generate dockerfile $(CATALOG_DIR)
+	$(OPM) init spring-boot-operator \
+		--default-channel=alpha \
+		--output yaml > $(CATALOG_DIR)/spring-boot-operator/package.yaml
+	@echo "Catalog initialised. Commit the catalog/ directory."
+
+# Adds the versioned bundle to the catalogue 
+.PHONY: catalog-add
+catalog-add: opm ## Add current bundle version to the catalog. Usage: make catalog-add
+	@chmod +x hack/add-to-catalog.sh
+	./hack/add-to-catalog.sh $(VERSION)
+
+.PHONY: catalog-validate
+catalog-validate: opm ## Validate the catalog.
+	$(OPM) validate $(CATALOG_DIR)
 
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
 # This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool $(CONTAINER_TOOL) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(CONTAINER_TOOL) build -f $(CATALOG_DIR)/catalog.Dockerfile -t $(CATALOG_IMG) .
 
 # Push the catalog image.
 .PHONY: catalog-push

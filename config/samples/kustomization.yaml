@@ -1,6 +1,6 @@
 ## Append samples of your project ##
 resources:
 - minimal.yaml
-- custom-requests.yaml
+- custom-resources.yaml
 - configured.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

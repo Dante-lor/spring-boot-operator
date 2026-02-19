@@ -1,3 +1,0 @@
-# Installation
-
-todo - work out how to install this in your cluster...
