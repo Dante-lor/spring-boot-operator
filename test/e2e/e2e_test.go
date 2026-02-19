@@ -256,7 +256,54 @@ var _ = Describe("Manager", Ordered, func() {
 			))
 		})
 
+		It("should provisioned cert-manager", func() {
+			By("validating that cert-manager has the certificate Secret")
+			verifyCertManager := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "secrets", "webhook-server-cert", "-n", namespace)
+				_, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+			Eventually(verifyCertManager).Should(Succeed())
+		})
+
+		It("should have CA injection for mutating webhooks", func() {
+			By("checking CA injection for mutating webhooks")
+			verifyCAInjection := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"mutatingwebhookconfigurations.admissionregistration.k8s.io",
+					"spring-boot-operator-mutating-webhook-configuration",
+					"-o", "go-template={{ range .webhooks }}{{ .clientConfig.caBundle }}{{ end }}")
+				mwhOutput, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(len(mwhOutput)).To(BeNumerically(">", 10))
+			}
+			Eventually(verifyCAInjection).Should(Succeed())
+		})
+
 		// +kubebuilder:scaffold:e2e-webhooks-checks
+
+		It("should set small preset by default", func() {
+			createMinimalApp := func(g Gomega) {
+				cmd := exec.Command("kubectl", "apply", "-f", "config/samples/minimal.yaml")
+				_, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+			Eventually(createMinimalApp).Should(Succeed())
+
+			// Check the small preset is added
+			minimalAppHasSmallPreset := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get",
+					"springbootapplications/springbootapplication-sample",
+					"-o", "jsonpath={ .spec.resourcePreset }")
+
+				res, err := utils.Run(cmd)
+
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(res).To(Equal("small"))
+			}
+
+			Eventually(minimalAppHasSmallPreset).Should(Succeed())
+		})
 
 		// TODO: Customize the e2e test suite with scenarios specific to your project.
 		// Consider applying sample/CR(s) and check their status and/or verifying

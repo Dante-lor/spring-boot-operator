@@ -1,4 +1,6 @@
 ## Append samples of your project ##
 resources:
-- spring_v1alpha1_springbootapplication.yaml
+- minimal.yaml
+- custom-requests.yaml
+- configured.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
