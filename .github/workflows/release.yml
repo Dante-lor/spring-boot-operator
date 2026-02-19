@@ -83,7 +83,7 @@ jobs:
           token: ${{ secrets.RELEASE_PAT }}
 
       - name: Update catalog on main
-        run: make catalog-add catalog-validate version-bump
+        run: make catalog-add catalog-validate
 
       - name: Bump versions
         run: make version-bump
