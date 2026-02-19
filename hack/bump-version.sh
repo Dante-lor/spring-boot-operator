@@ -18,4 +18,4 @@ NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}"
 sed -i "s/^VERSION ?= .*/VERSION ?= ${NEXT_VERSION}/" Makefile
 
 # Update the version in the manager/kustomization file
-sed -i -E "s/[0-9]+\.[0-9]+\.[0-9]+/$RELEASED_VERSION/g" config/manager/kustomization.yaml
+sed -i -E "s/[0-9]+\.[0-9]+\.[0-9]+/$NEXT_VERSION/g" config/manager/kustomization.yaml
