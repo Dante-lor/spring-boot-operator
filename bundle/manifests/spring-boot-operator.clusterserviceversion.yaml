@@ -1,0 +1,304 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "spring.dante-lor.github.io/v1alpha1",
+          "kind": "SpringBootApplication",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "spring-boot-operator"
+            },
+            "name": "configured-app"
+          },
+          "spec": {
+            "config": {
+              "server": {
+                "port": 8000
+              },
+              "spring": {
+                "application": {
+                  "name": "my-app"
+                }
+              }
+            },
+            "image": "registry.k8s.io/pause:latest"
+          }
+        },
+        {
+          "apiVersion": "spring.dante-lor.github.io/v1alpha1",
+          "kind": "SpringBootApplication",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "spring-boot-operator"
+            },
+            "name": "custom-resources"
+          },
+          "spec": {
+            "image": "registry.k8s.io/pause:latest",
+            "resources": {
+              "cpu": 4,
+              "memory": "8Gi"
+            }
+          }
+        },
+        {
+          "apiVersion": "spring.dante-lor.github.io/v1alpha1",
+          "kind": "SpringBootApplication",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "spring-boot-operator"
+            },
+            "name": "minimal"
+          },
+          "spec": {
+            "image": "registry.k8s.io/pause:latest"
+          }
+        }
+      ]
+    capabilities: Basic Install
+    createdAt: "2026-02-19T12:23:11Z"
+    operators.operatorframework.io/builder: operator-sdk-v1.42.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
+  name: spring-boot-operator.v0.0.1
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: SpringBootApplication is the Schema for the springbootapplications
+        API.
+      displayName: Spring Boot Application
+      kind: SpringBootApplication
+      name: springbootapplications.spring.dante-lor.github.io
+      version: v1alpha1
+  description: Simplify the way you deploy spring boot applications to Kubernetes
+  displayName: Spring Boot Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - spring.dante-lor.github.io
+          resources:
+          - springbootapplications
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - spring.dante-lor.github.io
+          resources:
+          - springbootapplications/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - spring.dante-lor.github.io
+          resources:
+          - springbootapplications/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        serviceAccountName: spring-boot-operator-controller-manager
+      deployments:
+      - label:
+          app.kubernetes.io/managed-by: kustomize
+          app.kubernetes.io/name: spring-boot-operator
+          control-plane: controller-manager
+        name: spring-boot-operator-controller-manager
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app.kubernetes.io/name: spring-boot-operator
+              control-plane: controller-manager
+          strategy: {}
+          template:
+            metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
+              labels:
+                app.kubernetes.io/name: spring-boot-operator
+                control-plane: controller-manager
+            spec:
+              containers:
+              - args:
+                - --metrics-bind-address=:8443
+                - --leader-elect
+                - --health-probe-bind-address=:8081
+                - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+                command:
+                - /manager
+                image: ghcr.io/dante-lor/spring-boot-operator:0.0.1
+                livenessProbe:
+                  httpGet:
+                    path: /healthz
+                    port: 8081
+                  initialDelaySeconds: 15
+                  periodSeconds: 20
+                name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
+                readinessProbe:
+                  httpGet:
+                    path: /readyz
+                    port: 8081
+                  initialDelaySeconds: 5
+                  periodSeconds: 10
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 128Mi
+                  requests:
+                    cpu: 10m
+                    memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: webhook-certs
+                  readOnly: true
+              securityContext:
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+              serviceAccountName: spring-boot-operator-controller-manager
+              terminationGracePeriodSeconds: 10
+              volumes:
+              - name: webhook-certs
+                secret:
+                  secretName: webhook-server-cert
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: spring-boot-operator-controller-manager
+    strategy: deployment
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - spring-boot
+  - java
+  - hobby
+  - simplify
+  links:
+  - name: Spring Boot Operator
+    url: https://spring-boot-operator.domain
+  maturity: alpha
+  minKubeVersion: 1.30.0
+  provider:
+    name: dante-lor
+    url: https://dante-lor.github.io/spring-boot-operator
+  version: 0.0.1
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: spring-boot-operator-controller-manager
+    failurePolicy: Fail
+    generateName: mspringbootapplication-v1alpha1.kb.io
+    rules:
+    - apiGroups:
+      - spring.dante-lor.github.io
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - springbootapplications
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-spring-dante-lor-github-io-v1alpha1-springbootapplication
