@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+VERSION ?= 0.0.2
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -92,9 +92,10 @@ help: ## Display this help.
 
 ##@ Development
 
-.PHONY: version-bump # Bump versions in the Makefile, Docs and config/manager/kustomize.yaml files
-	@chmod +x hack/add-to-catalog.sh
-	./hack/add-to-catalog.sh $(VERSION)
+.PHONY: version-bump 
+version-bump:# Bump versions in the Makefile, Docs and config/manager/kustomize.yaml files
+	@chmod +x hack/bump-version.sh
+	./hack/bump-version.sh $(VERSION)
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
