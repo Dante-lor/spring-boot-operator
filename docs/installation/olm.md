@@ -23,12 +23,6 @@ If your cluster does not have OLM installed, you can install it using the [Opera
 operator-sdk olm install
 ```
 
-Or directly via the OLM install script for a specific version:
-
-```bash
-curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
-```
-
 To verify OLM is running:
 
 ```bash

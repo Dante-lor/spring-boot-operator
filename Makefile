@@ -92,6 +92,10 @@ help: ## Display this help.
 
 ##@ Development
 
+.PHONY: version-bump # Bump versions in the Makefile, Docs and config/manager/kustomize.yaml files
+	@chmod +x hack/add-to-catalog.sh
+	./hack/add-to-catalog.sh $(VERSION)
+
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -354,7 +358,7 @@ catalog-init: opm ## Initialise the catalog directory structure (run once).
 
 # Adds the versioned bundle to the catalogue 
 .PHONY: catalog-add
-catalog-add: opm ## Add current bundle version to the catalog. Usage: make catalog-add PREV_VERSION=0.0.1
+catalog-add: opm ## Add current bundle version to the catalog. Usage: make catalog-add
 	@chmod +x hack/add-to-catalog.sh
 	./hack/add-to-catalog.sh $(VERSION)
 
