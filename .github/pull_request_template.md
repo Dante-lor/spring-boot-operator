@@ -1,7 +1,7 @@
 
 ## 🔗 Issue
 
-Closes #
+Fixes #
 
 <!-- Example: Closes #123 -->
 
