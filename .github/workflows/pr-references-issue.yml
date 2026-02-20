@@ -1,5 +1,8 @@
 name: Ensure PR references issue
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     types: [opened, edited, synchronize]
