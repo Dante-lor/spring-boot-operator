@@ -2,6 +2,8 @@ site_name: Spring Boot Operator
 site_url: https://dante-lor.github.io/spring-boot-operator
 theme:
   name: material
+  features:
+    - content.code.copy
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
