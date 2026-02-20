@@ -1,19 +1,41 @@
-name: Ensure PR references issue
+name: Enforce Issue Link
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   contents: read
 
-on:
-  pull_request:
-    types: [opened, edited, synchronize]
-
 jobs:
-  check:
+  check-issue-link:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate issue reference
+      - name: Skip automated PRs
+        id: check_actor
         run: |
-          if ! echo "${{ github.event.pull_request.body }}" | grep -Eiq 'closes #[0-9]+'; then
-            echo "PR must include 'Closes #<number>'"
+          ACTOR="${{ github.actor }}"
+          if [[ "$ACTOR" == "dependabot[bot]" || "$ACTOR" == "github-advanced-security[bot]" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check PR body for issue link
+        if: steps.check_actor.outputs.skip == 'false'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+
+          # Match "Fixes #123", "Closes #123", "Resolves #123" (case-insensitive)
+          if echo "$PR_BODY" | grep -iqE "(fixes|closes|resolves)\s+#[0-9]+"; then
+            echo "✅ Issue reference found."
+          else
+            echo "❌ No issue reference found."
+            echo ""
+            echo "PR body or title must include a reference such as:"
+            echo "  Fixes #123"
+            echo "  Closes #456"
+            echo "  Resolves #789"
             exit 1
           fi
