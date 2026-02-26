@@ -18,14 +18,12 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -260,17 +258,7 @@ var _ = Describe("SpringBootApplication Controller", func() {
 			BeforeEach(func() {
 				resource.Spec.ResourcePreset = ptr.To(springv1alpha1.Small)
 
-				config := map[string]any{
-					"server": map[string]any{
-						"port": 3333, // Different port
-					},
-				}
-
-				raw, _ := json.Marshal(config)
-
-				resource.Spec.Config = &runtime.RawExtension{
-					Raw: raw,
-				}
+				resource.Spec.Port = 3333
 
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 
