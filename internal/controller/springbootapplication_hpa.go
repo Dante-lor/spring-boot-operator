@@ -74,7 +74,7 @@ func createAutoscalerSpec(app *springv1alpha1.SpringBootApplication) (scalingv2.
 		case springv1alpha1.SpringNative:
 			averageTargetPercent = ptr.To(int32(65))
 		default:
-			return spec, fmt.Errorf("Unrecognized application type: %s", app.Spec.Type)
+			return spec, fmt.Errorf("unrecognized application type: %s", app.Spec.Type)
 		}
 	}
 
@@ -128,7 +128,7 @@ func createBehaviour(scaleUpStabilization int, scaleUpPercentage int, scaleUpPer
 		ScaleUp: &scalingv2.HPAScalingRules{
 			StabilizationWindowSeconds: ptr.To(int32(scaleUpStabilization)),
 			Policies: []scalingv2.HPAScalingPolicy{
-				scalingv2.HPAScalingPolicy{
+				{
 					Type:          scalingv2.PercentScalingPolicy,
 					Value:         int32(scaleUpPercentage),
 					PeriodSeconds: int32(scaleUpPeriodSeconds),

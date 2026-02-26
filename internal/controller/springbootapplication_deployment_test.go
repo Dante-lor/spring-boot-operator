@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	"github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,7 +43,7 @@ var _ = Describe("Deployment Controller", func() {
 			Spec: springv1alpha1.SpringBootApplicationSpec{
 				Type:           springv1alpha1.SpringWeb,
 				Image:          "test",
-				ResourcePreset: ptr.To(v1alpha1.Small),
+				ResourcePreset: ptr.To(springv1alpha1.Small),
 				Autoscaler: springv1alpha1.AutoscalingConfig{
 					MinReplicas: 1,
 					MaxReplicas: 5,
