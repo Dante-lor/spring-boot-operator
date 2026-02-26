@@ -10,6 +10,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	res "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -198,6 +201,198 @@ var _ = Describe("Deployment Controller", func() {
 			exposed := ports[0]
 
 			Expect(exposed.ContainerPort).To(BeEquivalentTo(3333))
+		})
+	})
+
+	Describe("Readiness probes", func() {
+		It("should use context path and port when context path has no trailing slash", func()  {
+			app.Spec.ContextPath = "/mypath"
+			app.Spec.Port = 8000
+
+			Expect(k8sClient.Update(ctx, app)).To(Succeed())
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+
+			deploy := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+
+			container := deploy.Spec.Template.Spec.Containers[0]
+
+			Expect(*container.ReadinessProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/mypath/actuator/health/readiness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+			}))
+
+			Expect(*container.LivenessProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/mypath/actuator/health/liveness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+			}))
+
+			Expect(*container.StartupProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/mypath/actuator/health/liveness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 30, // Wait 5 minutes before declaring failure
+			}))
+		})
+
+		It("should use context path and port when context path has trailing slash", func()  {
+			app.Spec.ContextPath = "/mypath/"
+			app.Spec.Port = 8000
+
+			Expect(k8sClient.Update(ctx, app)).To(Succeed())
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+
+			deploy := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+
+			container := deploy.Spec.Template.Spec.Containers[0]
+
+			Expect(*container.ReadinessProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/mypath/actuator/health/readiness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+			}))
+
+			Expect(*container.LivenessProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/mypath/actuator/health/liveness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+			}))
+
+			Expect(*container.StartupProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/mypath/actuator/health/liveness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 30, // Wait 5 minutes before declaring failure
+			}))
+		})
+
+
+		It("should use default path when no context path is set", func()  {
+			app.Spec.ContextPath = ""
+			app.Spec.Port = 8000
+
+			Expect(k8sClient.Update(ctx, app)).To(Succeed())
+
+			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: typeNamespacedName,
+			})
+
+			Expect(err).NotTo(HaveOccurred())
+
+			deploy := &appsv1.Deployment{}
+			Expect(k8sClient.Get(ctx, typeNamespacedName, deploy)).To(Succeed())
+
+			container := deploy.Spec.Template.Spec.Containers[0]
+
+			Expect(*container.ReadinessProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/actuator/health/readiness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+			}))
+
+			Expect(*container.LivenessProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/actuator/health/liveness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 3,
+			}))
+
+			Expect(*container.StartupProbe).To(Equal(corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Port: intstr.FromInt(8000),
+						Path: "/actuator/health/liveness",
+						Scheme: "HTTP",
+					},
+				},
+				InitialDelaySeconds: 0,
+				TimeoutSeconds: 1,
+				PeriodSeconds: 10,
+				SuccessThreshold: 1,
+				FailureThreshold: 30, // Wait 5 minutes before declaring failure
+			}))
 		})
 	})
 

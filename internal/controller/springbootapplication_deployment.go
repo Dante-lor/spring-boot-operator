@@ -3,12 +3,14 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -64,6 +66,16 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1al
 		return appsv1.Deployment{}, err
 	}
 
+	// Construct the spring boot actuator path
+
+	healthPath := app.Spec.ContextPath
+
+	if (strings.HasSuffix(healthPath, "/")) {
+		healthPath += "actuator/health"
+	} else {
+		healthPath += "/actuator/health"
+	}
+
 	runAsNonRoot := true
 	allowPriviledgeEscalation := false
 	readOnlyFileSystem := true
@@ -101,6 +113,31 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1al
 									Name:          "http",
 									ContainerPort: int32(app.Spec.Port),
 								},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Port: intstr.FromInt(app.Spec.Port),
+										Path: healthPath + "/liveness",
+									},
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Port: intstr.FromInt(app.Spec.Port),
+										Path: healthPath + "/readiness",
+									},
+								},
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Port: intstr.FromInt(app.Spec.Port),
+										Path: healthPath + "/liveness",
+									},
+								},
+								FailureThreshold: 30,
 							},
 							Resources: resources,
 							SecurityContext: &corev1.SecurityContext{

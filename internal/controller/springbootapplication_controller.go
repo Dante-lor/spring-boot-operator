@@ -23,6 +23,7 @@ import (
 
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	scalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -228,5 +229,6 @@ func (r *SpringBootApplicationReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
+		Owns(&scalingv2.HorizontalPodAutoscaler{}).
 		Complete(r)
 }
