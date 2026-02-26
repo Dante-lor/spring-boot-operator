@@ -23,9 +23,9 @@ import (
 
 	springv1alpha1 "github.com/dante-lor/spring-boot-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	scalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -42,8 +42,6 @@ type SpringBootApplicationReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// Used internally
-const DEFAULT_INTERNAL_PORT = 8080
 const EXTERNAL_PORT = 80
 
 // +kubebuilder:rbac:groups=spring.dante-lor.github.io,resources=springbootapplications,verbs=get;list;watch;create;update;patch;delete
@@ -52,6 +50,7 @@ const EXTERNAL_PORT = 80
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -70,7 +69,7 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 
 	logger.Info("Reconciling application", "name", app.Name, "namespace", app.Namespace)
 
-	appConfig, internalPort, err := mergeConfigWithDefaultPort(app.Spec.Config)
+	appConfig, err := mergeConfig(app.Spec)
 
 	if err != nil {
 		meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
@@ -99,11 +98,15 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if err = r.ensureService(ctx, app, internalPort); err != nil {
+	if err = r.ensureService(ctx, app); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.ensureDeployment(ctx, app, internalPort); err != nil {
+	if err = r.ensureDeployment(ctx, app); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ensureAutoscaler(ctx, app); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -141,7 +144,7 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 }
 
 // Creates HTTP service to handle web traffic
-func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *springv1alpha1.SpringBootApplication, internalPort int) error {
+func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *springv1alpha1.SpringBootApplication) error {
 	existing := &corev1.Service{}
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
 
@@ -165,7 +168,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 				{
 					Name:       "http",
 					Port:       EXTERNAL_PORT,
-					TargetPort: intstr.FromInt(internalPort),
+					TargetPort: intstr.FromInt(app.Spec.Port),
 				},
 			},
 			Selector: map[string]string{
@@ -179,209 +182,17 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 	return err
 }
 
-func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *springv1alpha1.SpringBootApplication, internalPort int) error {
-	existing := &appsv1.Deployment{}
-
-	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
-
-	if client.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      app.Name,
-			Namespace: app.Namespace,
-		},
-	}
-
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		desired, err := r.createDeploymentObject(app, internalPort)
-
-		if err != nil {
-			return err
-		}
-
-		deploy.Labels = desired.Labels
-		deploy.Spec = desired.Spec
-
-		return controllerutil.SetControllerReference(app, deploy, r.Scheme)
-	})
-
-	return err
-}
-
-func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
-	labels := app.GetLabels()
-
-	if labels == nil {
-		labels = map[string]string{
-			"app": app.Name,
-		}
-	} else {
-		labels["app"] = app.Name
-	}
-
-	// Try and create resources from the app object
-
-	resources, err := createResources(*app)
-
-	if err != nil {
-		return appsv1.Deployment{}, err
-	}
-
-	replicas := int32(1)
-
-	runAsNonRoot := true
-	allowPriviledgeEscalation := false
-	readOnlyFileSystem := true
-
-	dep := appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      app.Name,
-			Namespace: app.Namespace,
-			Labels:    app.Labels,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": app.Name,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: &runAsNonRoot,
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							Name:  "app",
-							Image: app.Spec.Image,
-							Ports: []corev1.ContainerPort{
-								{
-									Name:          "http",
-									ContainerPort: int32(internalPort),
-								},
-							},
-							Resources: resources,
-							SecurityContext: &corev1.SecurityContext{
-								AllowPrivilegeEscalation: &allowPriviledgeEscalation,
-								ReadOnlyRootFilesystem:   &readOnlyFileSystem,
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{
-										"ALL",
-									},
-								},
-							},
-							Env: []corev1.EnvVar{
-								{
-									// Using additional config means that this config is merged with their existing
-									// Configuration, meaning the config object doesn't have to be as large
-									Name:  "SPRING_CONFIG_ADDITIONAL_LOCATION",
-									Value: "/config",
-								},
-								{
-									// By default, java only uses 25% of it's memory for the java heap. That is quite low
-									// Setting this to 70 allows it to use more. Some needs to be left for GC.
-									Name:  "JAVA_TOOL_OPTIONS",
-									Value: "-XX:MaxRAMPercentage=70",
-								},
-							},
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "config",
-									MountPath: "/config",
-								},
-							},
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: app.Name,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(app, &dep, r.Scheme); err != nil {
-		return dep, err
-	}
-
-	return dep, nil
-}
-
-func createResources(app springv1alpha1.SpringBootApplication) (corev1.ResourceRequirements, error) {
-	if app.Spec.ResourcePreset == nil {
-		resources := app.Spec.Resources
-		if resources == nil {
-			return corev1.ResourceRequirements{}, fmt.Errorf("either resource preset or resource must be defined")
-		}
-
-		// Try and parse
-		cpu, err := resource.ParseQuantity(resources.CPU)
-		if err != nil {
-			return corev1.ResourceRequirements{}, err
-		}
-
-		memory, err := resource.ParseQuantity(resources.Memory)
-
-		if err != nil {
-			return corev1.ResourceRequirements{}, err
-		}
-
-		return createSpringResourceRequirements(cpu, memory), nil
-	}
-
-	switch *app.Spec.ResourcePreset {
-	case springv1alpha1.Small:
-		return createSpringResourceRequirements(resource.MustParse("1"), resource.MustParse("1Gi")), nil
-	case springv1alpha1.Medium:
-		return createSpringResourceRequirements(resource.MustParse("2"), resource.MustParse("2Gi")), nil
-	case springv1alpha1.Large:
-		return createSpringResourceRequirements(resource.MustParse("4"), resource.MustParse("4Gi")), nil
-	default:
-		return corev1.ResourceRequirements{}, fmt.Errorf("unrecognized resource preset: %s", *app.Spec.ResourcePreset)
-	}
-}
-
-func createSpringResourceRequirements(cpu resource.Quantity, memory resource.Quantity) corev1.ResourceRequirements {
-	return corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    cpu,
-			corev1.ResourceMemory: memory,
-		},
-		Limits: corev1.ResourceList{
-			corev1.ResourceMemory: memory,
-		},
-	}
-}
-
-// mergeConfigWithDefaultPort merges the RawExtension config with a default server port
-// If the user already specifies server.port, it keeps that value.
-// Returns the merged YAML string and the port as int.
-func mergeConfigWithDefaultPort(raw *runtime.RawExtension) (string, int, error) {
+// mergeConfig merges the user provided configuration with the configuration defined on
+// the spec (currently port and context path)
+func mergeConfig(spec springv1alpha1.SpringBootApplicationSpec) (string, error) {
 	// Step 1: unmarshal RawExtension JSON into a map
 	merged := map[string]interface{}{}
 
+	raw := spec.Config
+
 	if raw != nil && len(raw.Raw) > 0 {
 		if err := json.Unmarshal(raw.Raw, &merged); err != nil {
-			return "", 0, fmt.Errorf("failed to unmarshal RawExtension: %w", err)
+			return "", fmt.Errorf("failed to unmarshal RawExtension: %w", err)
 		}
 	}
 
@@ -391,30 +202,24 @@ func mergeConfigWithDefaultPort(raw *runtime.RawExtension) (string, int, error) 
 		server = map[string]interface{}{}
 	}
 
-	// Step 3: check if port is set, if not, set default
-	port, ok := server["port"].(int) // JSON numbers come back as float64
-	if !ok {
-		if portFloat, ok := server["port"].(float64); ok {
-			port = int(portFloat)
-		} else {
-			port = DEFAULT_INTERNAL_PORT
-		}
-	}
+	// Step 3: set port and context path
+	server["port"] = spec.Port
 
-	// If port was not defined, inject default
-	if _, exists := server["port"]; !exists {
-		server["port"] = port
+	servlet, ok := server["servlet"].(map[string]interface{})
+	if !ok {
+		servlet = map[string]interface{}{}
 	}
+	servlet["context-path"] = spec.ContextPath
 
 	merged["server"] = server
 
 	// Step 4: marshal merged map to YAML
 	yamlBytes, err := yaml.Marshal(merged)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to marshal merged config to YAML: %w", err)
+		return "", fmt.Errorf("failed to marshal merged config to YAML: %w", err)
 	}
 
-	return string(yamlBytes), port, nil
+	return string(yamlBytes), nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -425,5 +230,6 @@ func (r *SpringBootApplicationReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Service{}).
+		Owns(&scalingv2.HorizontalPodAutoscaler{}).
 		Complete(r)
 }

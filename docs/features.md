@@ -6,9 +6,55 @@ Spring boot apps may be configured with an `application.yaml` file. Since yaml w
 
 You can add configuration to your spring boot application easily using the `config` field like in [this example](https://github.com/Dante-lor/spring-boot-operator/tree/main/config/samples/configured.yaml).
 
-!!! note "Overriding the default port"
-    By default, your spring application will have the port exposed by setting `server.port` to 8080 explicitly. This is to ensure your application can be safely exposed using the service. However if you change the port by setting the server.port, the services and deployments will be exposed appropriately.
+!!! note "Default configurations"
+    The port and context-path are defaulted in the generated application.yaml based on the `spec.port` and `spec.contextPath` properties. This is done to ensure that configuration, service settings and healthchecks can be correctly set.
 
+## Health checks
+
+To stop traffic heading to your spring application before it's ready, we use health checks designed around [Spring actuator](https://docs.spring.io/spring-boot/reference/actuator/enabling.html). If you haven't added spring actuator as a dependency, add this to your pom.xml file:
+
+```xml title="pom.xml"
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+## Autoscaling
+
+Your application will be equipped with a horizontal pod autoscaler which will increase and decrease the number of replicas based on cpu load.
+
+By default, we determine the scaling behaviour from the `spec.type` field. This indicates to use which type of spring boot app you're deploying. This can be either:
+
+| Setting   | Framework                 | Characteristics                           | CPU Target | Scale-Up       | Stabilization |
+|-----------|---------------------------|-------------------------------------------|------------|----------------|---------------|
+| `web`     | Spring Web                | Slower startup, higher resource usage     | 70%        | 50% / 60s      | 30s           |
+| `webflux` | Spring WebFlux            | Moderate startup, more CPU efficient      | 75%        | 75% / 60s      | 20s           |
+| `native`  | Spring Native (GraalVM)   | Rapid startup, highly burstable           | 65%        | 100% / 30s     | 10s           |
+
+The default setting is `web`.
+
+However you can override these by using the following properties:
+
+```yaml
+spec:
+  autoscaler:
+    minReplicas: 2 # Default value
+    maxReplicas: 10 # Default value
+    targetUtilization:
+      cpuPercent: 70 # We may add more types in future for IO bound apps
+    behavior:
+      scaleUp:
+        stabilizationWindowSeconds: 10
+        policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 30
+      scaleDown:
+        stabilizationWindowSeconds: 180
+```
+
+If you want to learn more about the custom scaling behaviour, you can read more [here](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/#configurable-scaling-behavior).
 
 ## Resource setting
 

@@ -120,7 +120,15 @@ previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml
 is manually re-applied afterwards.
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+This project is very early in it's development however contributions are welcome. If you're not sure about something, feel free to post in the discussions or raise and issue and I will help you out :heart:
+
+There is a full [Contributions Guide](./CONTRIBUTING.md) but in a nutshell:
+
+* Use templates where they exist (for Issues and PRs)
+* Try and match the code style that exists
+* Follow the [KISS](https://en.wikipedia.org/wiki/KISS_principle) principle
+* [Be nice to people](./CODE_OF_CONDUCT.md)
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 

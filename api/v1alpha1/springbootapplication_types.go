@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	scalingv2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -29,6 +30,14 @@ const (
 	Large  ResourcePreset = "large"
 )
 
+type SpringFramework string
+
+const (
+	SpringWeb     SpringFramework = "web"
+	SpringWebflux SpringFramework = "webflux"
+	SpringNative                  = "native"
+)
+
 // Describes cpu and memory requirements for a spring application to run when under normal load
 // If ResourcePreset is not used, a user must specify CPU and memory usage
 type ResourceDefinition struct {
@@ -36,14 +45,62 @@ type ResourceDefinition struct {
 	Memory string `json:"memory"`
 }
 
+// Utilization Percentage
+type UtilizationTarget struct {
+
+	// CPU percentage target
+	CpuPercentage *int32 `json:"cpuPercentage,omitempty"`
+}
+
+// Custom Autoscaling configuration.
+type AutoscalingConfig struct {
+
+	// +kubebuilder:default=2
+	// Min replicas
+	MinReplicas int `json:"minReplicas,omitempty"`
+
+	// +kubebuilder:default=10
+	// Max replicas
+	MaxReplicas int `json:"maxReplicas,omitempty"`
+
+	// Utilization target
+	TargetUtilization UtilizationTarget `json:"utilizationTarget,omitempty"`
+
+	// Scaling behaviour
+	Behaviour *scalingv2.HorizontalPodAutoscalerBehavior `json:"behaviour,omitempty"`
+}
+
 // SpringBootApplicationSpec defines the desired state of SpringBootApplication.
 type SpringBootApplicationSpec struct {
 	// +kubebuilder:validation:MinLength=1
-	Image  string                `json:"image"`
+	// Docker image to run (required)
+	Image string `json:"image"`
+
+	// +kubebuilder:validation:Enum=web;webflux;native
+	// +kubebuilder:default=web
+	// Type of Spring Boot Application
+	Type SpringFramework `json:"type,omitempty"`
+
+	// +kubebuilder:default=8080
+	// Internal HTTP port to use
+	Port int `json:"port,omitempty"`
+
+	// +kubebuilder:default=/
+	// Context path for the application to use
+	ContextPath string `json:"contextPath,omitempty"`
+
+	// Application.yaml file contents
 	Config *runtime.RawExtension `json:"config,omitempty"`
+
 	// +kubebuilder:validation:Enum=small;medium;large
-	ResourcePreset *ResourcePreset     `json:"resourcePreset,omitempty"`
-	Resources      *ResourceDefinition `json:"resources,omitempty"`
+	// Resource preset
+	ResourcePreset *ResourcePreset `json:"resourcePreset,omitempty"`
+
+	// Custom resources object - you can use this instead of using the preset.
+	Resources *ResourceDefinition `json:"resources,omitempty"`
+
+	// Autoscaling configuration
+	Autoscaler AutoscalingConfig `json:"autoscaler,omitempty"`
 }
 
 // SpringBootApplicationStatus defines the observed state of SpringBootApplication.

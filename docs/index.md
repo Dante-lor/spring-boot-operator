@@ -18,13 +18,16 @@ flowchart TD
     cm["ConfigMap for application.yaml"]
     dep["Deployment"]
     svc["Service"]
+    hpa["HorizontalPodAutoscaler"]
 
+    app -- generates --> hpa
     app -- generates --> dep
     app -- generates --> svc
     app -- generates --> cm
 
     cm -- mounted to --> dep
     svc -- exposes --> dep
+    hpa -- scales --> dep
 ```
 
 ## Samples
