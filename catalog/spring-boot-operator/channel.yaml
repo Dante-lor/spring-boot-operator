@@ -3,4 +3,4 @@ schema: olm.channel
 package: spring-boot-operator
 name: alpha
 entries:
- - name: spring-boot-operator.v0.0.1
+  - name: spring-boot-operator.v0.0.1
