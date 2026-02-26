@@ -1,9 +1,9 @@
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
-# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.1.0)
-# - use environment variables to overwrite this value (e.g export VERSION=0.1.0)
-VERSION ?= 0.1.0
+# - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.1.1)
+# - use environment variables to overwrite this value (e.g export VERSION=0.1.1)
+VERSION ?= 0.1.1
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -341,7 +341,7 @@ OPM = $(shell which opm)
 endif
 endif
 
-# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
+# A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.1,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
 
