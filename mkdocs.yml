@@ -1,9 +1,23 @@
 site_name: Spring Boot Operator
 site_url: https://dante-lor.github.io/spring-boot-operator
+repo_url: https://github.com/dante-lor/spring-boot-operator
+repo_name: dante-lor/spring-boot-operator
 theme:
   name: material
   features:
     - content.code.copy
+  palette: 
+    # Palette toggle for light mode
+    - scheme: default
+      toggle:
+        icon: lucide/sun
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      toggle:
+        icon: lucide/moon
+        name: Switch to light mode
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
