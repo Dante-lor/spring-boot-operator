@@ -136,11 +136,11 @@ More information can be found via the [Kubebuilder Documentation](https://book.k
 
 ## Updating Documentation
 
-Our docs are built with [Material For Markdown](https://squidfunk.github.io/mkdocs-material/). To host the docs locally,
+Our docs are built with [Zensical](https://zensical.org/about/). To host the docs locally,
 run this from inside the devcontainer:
 
 ```bash
-mkdocs serve
+zensical
 ```
 
 From there you will be able to edit the documentation live.

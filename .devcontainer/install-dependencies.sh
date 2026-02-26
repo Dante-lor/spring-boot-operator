@@ -23,5 +23,10 @@ curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/linux/amd64
 chmod +x kubebuilder
 sudo mv kubebuilder /usr/local/bin/
 
-# mkdocs
-pip install mkdocs-material
+# zensical (Docs)
+echo 'alias zensical="docker run --rm -it -p 8000:8000  \
+    -v ${LOCAL_WORKSPACE_FOLDER}/mkdocs.yml:/docs/mkdocs.yml \
+    -v ${LOCAL_WORKSPACE_FOLDER}/docs:/docs/docs \
+    zensical/zensical"' >> ~/.bashrc
+
+
