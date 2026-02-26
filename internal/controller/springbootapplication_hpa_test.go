@@ -19,10 +19,10 @@ var _ = Describe("HPA Controller", func() {
 	const namespace = "default"
 
 	var (
-		ctx                context.Context
-		typeNamespacedName types.NamespacedName
+		ctx                  context.Context
+		typeNamespacedName   types.NamespacedName
 		controllerReconciler *SpringBootApplicationReconciler
-		app                *springv1alpha1.SpringBootApplication
+		app                  *springv1alpha1.SpringBootApplication
 	)
 
 	BeforeEach(func() {
@@ -38,8 +38,8 @@ var _ = Describe("HPA Controller", func() {
 				Namespace: namespace,
 			},
 			Spec: springv1alpha1.SpringBootApplicationSpec{
-				Type: springv1alpha1.SpringWeb,
-				Image: "test",
+				Type:           springv1alpha1.SpringWeb,
+				Image:          "test",
 				ResourcePreset: ptr.To(v1alpha1.Small),
 				Autoscaler: springv1alpha1.AutoscalingConfig{
 					MinReplicas: 1,
