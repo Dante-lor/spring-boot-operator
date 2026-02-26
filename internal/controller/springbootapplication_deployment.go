@@ -70,7 +70,7 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1al
 
 	healthPath := app.Spec.ContextPath
 
-	if (strings.HasSuffix(healthPath, "/")) {
+	if strings.HasSuffix(healthPath, "/") {
 		healthPath += "actuator/health"
 	} else {
 		healthPath += "/actuator/health"

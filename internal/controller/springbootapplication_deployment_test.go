@@ -205,7 +205,7 @@ var _ = Describe("Deployment Controller", func() {
 	})
 
 	Describe("Readiness probes", func() {
-		It("should use context path and port when context path has no trailing slash", func()  {
+		It("should use context path and port when context path has no trailing slash", func() {
 			app.Spec.ContextPath = "/mypath"
 			app.Spec.Port = 8000
 
@@ -225,50 +225,50 @@ var _ = Describe("Deployment Controller", func() {
 			Expect(*container.ReadinessProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/mypath/actuator/health/readiness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/mypath/actuator/health/readiness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}))
 
 			Expect(*container.LivenessProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/mypath/actuator/health/liveness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/mypath/actuator/health/liveness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}))
 
 			Expect(*container.StartupProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/mypath/actuator/health/liveness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/mypath/actuator/health/liveness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 30, // Wait 5 minutes before declaring failure
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    30, // Wait 5 minutes before declaring failure
 			}))
 		})
 
-		It("should use context path and port when context path has trailing slash", func()  {
+		It("should use context path and port when context path has trailing slash", func() {
 			app.Spec.ContextPath = "/mypath/"
 			app.Spec.Port = 8000
 
@@ -288,51 +288,50 @@ var _ = Describe("Deployment Controller", func() {
 			Expect(*container.ReadinessProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/mypath/actuator/health/readiness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/mypath/actuator/health/readiness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}))
 
 			Expect(*container.LivenessProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/mypath/actuator/health/liveness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/mypath/actuator/health/liveness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}))
 
 			Expect(*container.StartupProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/mypath/actuator/health/liveness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/mypath/actuator/health/liveness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 30, // Wait 5 minutes before declaring failure
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    30, // Wait 5 minutes before declaring failure
 			}))
 		})
 
-
-		It("should use default path when no context path is set", func()  {
+		It("should use default path when no context path is set", func() {
 			app.Spec.ContextPath = ""
 			app.Spec.Port = 8000
 
@@ -352,46 +351,46 @@ var _ = Describe("Deployment Controller", func() {
 			Expect(*container.ReadinessProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/actuator/health/readiness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/actuator/health/readiness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}))
 
 			Expect(*container.LivenessProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/actuator/health/liveness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/actuator/health/liveness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 3,
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    3,
 			}))
 
 			Expect(*container.StartupProbe).To(Equal(corev1.Probe{
 				ProbeHandler: corev1.ProbeHandler{
 					HTTPGet: &corev1.HTTPGetAction{
-						Port: intstr.FromInt(8000),
-						Path: "/actuator/health/liveness",
+						Port:   intstr.FromInt(8000),
+						Path:   "/actuator/health/liveness",
 						Scheme: "HTTP",
 					},
 				},
 				InitialDelaySeconds: 0,
-				TimeoutSeconds: 1,
-				PeriodSeconds: 10,
-				SuccessThreshold: 1,
-				FailureThreshold: 30, // Wait 5 minutes before declaring failure
+				TimeoutSeconds:      1,
+				PeriodSeconds:       10,
+				SuccessThreshold:    1,
+				FailureThreshold:    30, // Wait 5 minutes before declaring failure
 			}))
 		})
 	})
