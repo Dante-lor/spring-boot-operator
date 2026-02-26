@@ -70,7 +70,7 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 
 	logger.Info("Reconciling application", "name", app.Name, "namespace", app.Namespace)
 
-	appConfig, internalPort, err := mergeConfigWithDefaultPort(app.Spec.Config)
+	appConfig, err := mergeConfig(app.Spec)
 
 	if err != nil {
 		meta.SetStatusCondition(&app.Status.Conditions, metav1.Condition{
@@ -99,11 +99,15 @@ func (r *SpringBootApplicationReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, err
 	}
 
-	if err = r.ensureService(ctx, app, internalPort); err != nil {
+	if err = r.ensureService(ctx, app); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.ensureDeployment(ctx, app, internalPort); err != nil {
+	if err = r.ensureDeployment(ctx, app); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.ensureAutoscaler(ctx, app); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -141,7 +145,7 @@ func (r *SpringBootApplicationReconciler) ensureConfigMap(ctx context.Context, a
 }
 
 // Creates HTTP service to handle web traffic
-func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *springv1alpha1.SpringBootApplication, internalPort int) error {
+func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app *springv1alpha1.SpringBootApplication) error {
 	existing := &corev1.Service{}
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
 
@@ -165,7 +169,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 				{
 					Name:       "http",
 					Port:       EXTERNAL_PORT,
-					TargetPort: intstr.FromInt(internalPort),
+					TargetPort: intstr.FromInt(app.Spec.Port),
 				},
 			},
 			Selector: map[string]string{
@@ -179,7 +183,7 @@ func (r *SpringBootApplicationReconciler) ensureService(ctx context.Context, app
 	return err
 }
 
-func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *springv1alpha1.SpringBootApplication, internalPort int) error {
+func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, app *springv1alpha1.SpringBootApplication) error {
 	existing := &appsv1.Deployment{}
 
 	err := r.Get(ctx, client.ObjectKeyFromObject(app), existing)
@@ -196,7 +200,7 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 	}
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		desired, err := r.createDeploymentObject(app, internalPort)
+		desired, err := r.createDeploymentObject(app)
 
 		if err != nil {
 			return err
@@ -211,7 +215,7 @@ func (r *SpringBootApplicationReconciler) ensureDeployment(ctx context.Context, 
 	return err
 }
 
-func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1alpha1.SpringBootApplication, internalPort int) (appsv1.Deployment, error) {
+func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1alpha1.SpringBootApplication) (appsv1.Deployment, error) {
 	labels := app.GetLabels()
 
 	if labels == nil {
@@ -230,8 +234,6 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1al
 		return appsv1.Deployment{}, err
 	}
 
-	replicas := int32(1)
-
 	runAsNonRoot := true
 	allowPriviledgeEscalation := false
 	readOnlyFileSystem := true
@@ -243,7 +245,7 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1al
 			Labels:    app.Labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: nil, // This is nil because the Autoscaler will set the replicas
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": app.Name,
@@ -267,7 +269,7 @@ func (r *SpringBootApplicationReconciler) createDeploymentObject(app *springv1al
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "http",
-									ContainerPort: int32(internalPort),
+									ContainerPort: int32(app.Spec.Port),
 								},
 							},
 							Resources: resources,
@@ -372,16 +374,17 @@ func createSpringResourceRequirements(cpu resource.Quantity, memory resource.Qua
 	}
 }
 
-// mergeConfigWithDefaultPort merges the RawExtension config with a default server port
-// If the user already specifies server.port, it keeps that value.
-// Returns the merged YAML string and the port as int.
-func mergeConfigWithDefaultPort(raw *runtime.RawExtension) (string, int, error) {
+// mergeConfig merges the user provided configuration with the configuration defined on
+// the spec (currently port and context path)
+func mergeConfig(spec springv1alpha1.SpringBootApplicationSpec) (string, error) {
 	// Step 1: unmarshal RawExtension JSON into a map
 	merged := map[string]interface{}{}
 
+	raw := spec.Config
+
 	if raw != nil && len(raw.Raw) > 0 {
 		if err := json.Unmarshal(raw.Raw, &merged); err != nil {
-			return "", 0, fmt.Errorf("failed to unmarshal RawExtension: %w", err)
+			return "", fmt.Errorf("failed to unmarshal RawExtension: %w", err)
 		}
 	}
 
@@ -391,30 +394,24 @@ func mergeConfigWithDefaultPort(raw *runtime.RawExtension) (string, int, error) 
 		server = map[string]interface{}{}
 	}
 
-	// Step 3: check if port is set, if not, set default
-	port, ok := server["port"].(int) // JSON numbers come back as float64
-	if !ok {
-		if portFloat, ok := server["port"].(float64); ok {
-			port = int(portFloat)
-		} else {
-			port = DEFAULT_INTERNAL_PORT
-		}
-	}
+	// Step 3: set port and context path
+	server["port"] = spec.Port
 
-	// If port was not defined, inject default
-	if _, exists := server["port"]; !exists {
-		server["port"] = port
+	servlet, ok := server["servlet"].(map[string]interface{})
+	if !ok {
+		servlet = map[string]interface{}{}
 	}
+	servlet["context-path"] = spec.ContextPath
 
 	merged["server"] = server
 
 	// Step 4: marshal merged map to YAML
 	yamlBytes, err := yaml.Marshal(merged)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to marshal merged config to YAML: %w", err)
+		return "", fmt.Errorf("failed to marshal merged config to YAML: %w", err)
 	}
 
-	return string(yamlBytes), port, nil
+	return string(yamlBytes), nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
