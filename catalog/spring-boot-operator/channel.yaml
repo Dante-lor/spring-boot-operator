@@ -4,3 +4,5 @@ package: spring-boot-operator
 name: alpha
 entries:
   - name: spring-boot-operator.v0.0.1
+  - name: spring-boot-operator.v0.1.1
+    replaces: spring-boot-operator.v0.0.1
